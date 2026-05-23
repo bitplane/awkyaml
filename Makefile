@@ -1,7 +1,7 @@
 AWK ?= awk
 
 .PHONY: test
-test: events-test suite-metadata-test suite-events-test parse-suite-test parse-progress
+test: events-test suite-metadata-test suite-events-test parse-progress parse-suite-test
 
 .PHONY: events-test
 events-test:
