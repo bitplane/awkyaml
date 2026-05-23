@@ -1,0 +1,9 @@
+DOC_START	0
+MAP_START	0		!!map	
+SCALAR	0	title	!!str		plain	Hello
+SEQ_START	0	tags	!!seq	
+SCALAR	0	tags\/0	!!str		plain	awk
+SCALAR	0	tags\/1	!!str		plain	yaml
+SEQ_END	0	tags
+MAP_END	0	
+DOC_END	0
