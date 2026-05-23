@@ -180,6 +180,8 @@ function suite_event_unescape_value(text,    out, i, ch, next_ch) {
                 out = out "\t"
             } else if (next_ch == "r") {
                 out = out "\r"
+            } else if (next_ch == "b") {
+                out = out "\b"
             } else {
                 out = out next_ch
             }

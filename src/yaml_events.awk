@@ -10,6 +10,8 @@ function yaml_event_escape(text,    out, i, ch) {
             out = out "\\n"
         } else if (ch == "\r") {
             out = out "\\r"
+        } else if (ch == "\b") {
+            out = out "\\b"
         } else if (ch == "/") {
             out = out "\\/"
         } else {
