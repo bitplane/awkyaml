@@ -12,3 +12,5 @@ event_count=$(find "$suite_dir" -name test.event | wc -l)
 
 test "$in_yaml_count" -gt 0
 test "$event_count" -eq "$in_yaml_count"
+
+echo "suite metadata: $in_yaml_count in.yaml, $event_count test.event"

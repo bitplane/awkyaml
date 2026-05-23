@@ -3,10 +3,15 @@ set -eu
 
 awk_bin=$1
 
-tmp=${TMPDIR:-/tmp}/awkyaml-events.$$
+tmp=$(mktemp "${TMPDIR:-/tmp}/awkyaml-events.XXXXXX")
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
 
 "$awk_bin" -f src/yaml_events.awk -f test/roundtrip-events.awk \
     test/events/basic.events > "$tmp"
 
-cmp -s test/events/basic.events "$tmp"
+if cmp -s test/events/basic.events "$tmp"; then
+    echo "events: 1 passed, 0 failed"
+else
+    echo "events: 0 passed, 1 failed" >&2
+    exit 1
+fi
