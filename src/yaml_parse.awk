@@ -14,8 +14,14 @@ function yaml_parse_start_document() {
     yaml_event_emit_doc_start(yaml_parse_doc_id)
 }
 
-function yaml_parse_error() {
+function yaml_parse_error(reason) {
     yaml_parse_failed = 1
+    if (ENVIRON["YAML_DEBUG"]) {
+        if (reason == "") {
+            reason = "parse error"
+        }
+        print FILENAME ":" FNR ": " reason > "/dev/stderr"
+    }
 }
 
 function yaml_parse_finish(    i) {
@@ -57,13 +63,21 @@ function yaml_parse_end_document(    i) {
         yaml_parse_depth = 0
         yaml_parse_pending_item_path = ""
         yaml_parse_pending_node_anchor = ""
+        yaml_parse_pending_node_tag = ""
         yaml_parse_failed = 0
         yaml_parse_ignore_to_doc_end = 0
         yaml_parse_empty_doc_pending = 0
         yaml_parse_root_complete = 0
         yaml_parse_seen_yaml_directive = 0
         yaml_parse_deferred_doc_start = 0
+        yaml_parse_clear_anchor_values()
         yaml_parse_reset_tag_handles()
+    }
+}
+
+function yaml_parse_clear_anchor_values(    anchor) {
+    for (anchor in yaml_parse_anchor_scalar_value) {
+        delete yaml_parse_anchor_scalar_value[anchor]
     }
 }
 
@@ -185,6 +199,14 @@ function yaml_parse_pending_node_is_container() {
     return yaml_parse_pending_node_tag == "tag:yaml.org,2002:map" || yaml_parse_pending_node_tag == "tag:yaml.org,2002:seq"
 }
 
+function yaml_parse_quote_start_char(ch) {
+    return ch == "\"" || ch == "'"
+}
+
+function yaml_parse_quote_escape_char(quote, ch) {
+    return quote == "\"" && ch == "\\"
+}
+
 function yaml_parse_strip_inline_comment(text,    i, ch, quote, prev, out) {
     quote = ""
     for (i = 1; i <= length(text); i++) {
@@ -193,10 +215,10 @@ function yaml_parse_strip_inline_comment(text,    i, ch, quote, prev, out) {
         if (quote != "") {
             if (ch == quote) {
                 quote = ""
-            } else if (ch == "\\" && quote == "\"") {
+            } else if (yaml_parse_quote_escape_char(quote, ch)) {
                 i++
             }
-        } else if (ch == "\"" || ch == "'") {
+        } else if (yaml_parse_quote_start_char(ch)) {
             quote = ch
         } else if (ch == "#" && (i == 1 || prev == " " || prev == "\t")) {
             out = substr(text, 1, i - 1)
@@ -314,10 +336,10 @@ function yaml_parse_flow_closed_prefix(text,    open_ch, close_ch, i, ch, quote,
         if (quote != "") {
             if (ch == quote) {
                 quote = ""
-            } else if (ch == "\\" && quote == "\"") {
+            } else if (yaml_parse_quote_escape_char(quote, ch)) {
                 i++
             }
-        } else if (ch == "\"" || ch == "'") {
+        } else if (yaml_parse_quote_start_char(ch)) {
             quote = ch
         } else if (ch == "[" || ch == "{") {
             depth++
@@ -370,12 +392,12 @@ function yaml_parse_quoted_scalar_start(value) {
 function yaml_parse_quoted_scalar_complete(value,    quote, i, ch) {
     value = yaml_parse_trim(value)
     quote = substr(value, 1, 1)
-    if (quote != "\"" && quote != "'") {
+    if (!yaml_parse_quote_start_char(quote)) {
         return 0
     }
     for (i = 2; i <= length(value); i++) {
         ch = substr(value, i, 1)
-        if (quote == "\"" && ch == "\\") {
+        if (yaml_parse_quote_escape_char(quote, ch)) {
             i++
         } else if (quote == "'" && ch == "'" && substr(value, i + 1, 1) == "'") {
             i++
@@ -389,12 +411,12 @@ function yaml_parse_quoted_scalar_complete(value,    quote, i, ch) {
 function yaml_parse_quoted_scalar_closed_prefix(value,    quote, i, ch) {
     value = yaml_parse_trim(value)
     quote = substr(value, 1, 1)
-    if (quote != "\"" && quote != "'") {
+    if (!yaml_parse_quote_start_char(quote)) {
         return 0
     }
     for (i = 2; i <= length(value); i++) {
         ch = substr(value, i, 1)
-        if (quote == "\"" && ch == "\\") {
+        if (yaml_parse_quote_escape_char(quote, ch)) {
             i++
         } else if (quote == "'" && ch == "'" && substr(value, i + 1, 1) == "'") {
             i++
@@ -783,11 +805,11 @@ function yaml_parse_flow_sequence(text, path,    body, i, ch, quote, depth, toke
             token = token ch
             if (ch == quote) {
                 quote = ""
-            } else if (ch == "\\" && quote == "\"") {
+            } else if (yaml_parse_quote_escape_char(quote, ch)) {
                 i++
                 token = token substr(body, i, 1)
             }
-        } else if (ch == "\"" || ch == "'") {
+        } else if (yaml_parse_quote_start_char(ch)) {
             quote = ch
             token = token ch
         } else if (ch == "[" || ch == "{") {
@@ -892,11 +914,11 @@ function yaml_parse_flow_mapping(text, path,    body, i, ch, quote, depth, token
             token = token ch
             if (ch == quote) {
                 quote = ""
-            } else if (ch == "\\" && quote == "\"") {
+            } else if (yaml_parse_quote_escape_char(quote, ch)) {
                 i++
                 token = token substr(body, i, 1)
             }
-        } else if (ch == "\"" || ch == "'") {
+        } else if (yaml_parse_quote_start_char(ch)) {
             quote = ch
             token = token ch
         } else if (ch == "[" || ch == "{") {
@@ -965,14 +987,14 @@ function yaml_parse_flow_mapping_colon(text,    i, ch, quote, in_tag, depth, nex
         if (quote != "") {
             if (ch == quote) {
                 quote = ""
-            } else if (ch == "\\" && quote == "\"") {
+            } else if (yaml_parse_quote_escape_char(quote, ch)) {
                 i++
             }
         } else if (in_tag) {
             if (ch == ">") {
                 in_tag = 0
             }
-        } else if (ch == "\"" || ch == "'") {
+        } else if (yaml_parse_quote_start_char(ch)) {
             quote = ch
         } else if (ch == "!" && next_ch == "<") {
             in_tag = 1
@@ -1028,10 +1050,10 @@ function yaml_parse_flow_complete(text,    i, ch, quote, depth, seen) {
         if (quote != "") {
             if (ch == quote) {
                 quote = ""
-            } else if (ch == "\\" && quote == "\"") {
+            } else if (yaml_parse_quote_escape_char(quote, ch)) {
                 i++
             }
-        } else if (ch == "\"" || ch == "'") {
+        } else if (yaml_parse_quote_start_char(ch)) {
             quote = ch
         } else if (ch == "[" || ch == "{") {
             depth++
@@ -1094,6 +1116,15 @@ function yaml_parse_unescape_double_quoted(value,    out, i, ch, next_ch, hex) {
                     yaml_parse_error()
                     return out
                 }
+            } else if (next_ch == "U" && i + 8 <= length(value)) {
+                hex = substr(value, i + 1, 8)
+                if (hex ~ /^[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]$/) {
+                    out = out yaml_parse_utf8(yaml_parse_hex_value(hex))
+                    i += 8
+                } else {
+                    yaml_parse_error()
+                    return out
+                }
             } else if (next_ch ~ /^[0abtnvfre "\\\/_NLP]$/) {
                 out = out next_ch
             } else {
@@ -1130,6 +1161,10 @@ function yaml_parse_hex_digit(ch) {
 }
 
 function yaml_parse_utf8(cp) {
+    if (cp > 1114111) {
+        yaml_parse_error()
+        return ""
+    }
     if (cp < 128) {
         return sprintf("%c", cp)
     }
@@ -1139,7 +1174,10 @@ function yaml_parse_utf8(cp) {
     if (cp < 2048) {
         return sprintf("%c%c", 192 + int(cp / 64), 128 + (cp % 64))
     }
-    return sprintf("%c%c%c", 224 + int(cp / 4096), 128 + (int(cp / 64) % 64), 128 + (cp % 64))
+    if (cp < 65536) {
+        return sprintf("%c%c%c", 224 + int(cp / 4096), 128 + (int(cp / 64) % 64), 128 + (cp % 64))
+    }
+    return sprintf("%c%c%c%c", 240 + int(cp / 262144), 128 + (int(cp / 4096) % 64), 128 + (int(cp / 64) % 64), 128 + (cp % 64))
 }
 
 function yaml_parse_scalar(text,    token, tag) {
@@ -1259,7 +1297,7 @@ function yaml_parse_mapping_colon(text,    i, ch, quote, in_tag, next_ch, prev_c
         if (quote != "") {
             if (ch == quote) {
                 quote = ""
-            } else if (ch == "\\" && quote == "\"") {
+            } else if (yaml_parse_quote_escape_char(quote, ch)) {
                 i++
             }
         } else if (in_tag) {
@@ -1270,7 +1308,7 @@ function yaml_parse_mapping_colon(text,    i, ch, quote, in_tag, next_ch, prev_c
             token = substr(text, i)
             sub(/[ \t].*$/, "", token)
             i += length(token) - 1
-        } else if ((ch == "\"" || ch == "'") && i == first_nonblank) {
+        } else if (yaml_parse_quote_start_char(ch) && i == first_nonblank) {
             quote = ch
         } else if (ch == "!" && next_ch == "<") {
             in_tag = 1
