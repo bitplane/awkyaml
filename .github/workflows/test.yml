@@ -1,0 +1,73 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - "v*.*.*"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: gawk --posix --lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install gawk
+        run: sudo apt-get update && sudo apt-get install -y gawk
+
+      - name: POSIX lint the parser
+        run: gawk --posix --lint -f src/yaml_events.awk -f src/yaml_parse.awk </dev/null >/dev/null
+
+  test:
+    name: ${{ matrix.awk }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - awk: awk
+            runner: awk
+          - awk: gawk
+            runner: gawk
+          - awk: busybox awk
+            runner: busybox-awk
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install AWK implementations
+        run: sudo apt-get update && sudo apt-get install -y busybox gawk
+
+      - name: Create AWK runners
+        run: |
+          mkdir -p .ci-bin
+
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'exec awk "$@"' \
+            > .ci-bin/awk
+
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'exec gawk "$@"' \
+            > .ci-bin/gawk
+
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'exec busybox awk "$@"' \
+            > .ci-bin/busybox-awk
+
+          chmod +x .ci-bin/awk .ci-bin/gawk .ci-bin/busybox-awk
+
+      - name: Run tests
+        run: make test AWK="./.ci-bin/${{ matrix.runner }}"
