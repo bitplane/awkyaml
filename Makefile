@@ -5,7 +5,7 @@ help: ## Show this help.
 	@awk 'BEGIN { FS = ":.*## " } /^[A-Za-z0-9_.-]+:.*## / { printf "%-24s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 .PHONY: test
-test: events-test regressions-test json-test suite-metadata-test suite-events-test parse-unsupported-test parse-progress parse-suite-test ## Run the full test suite.
+test: events-test regressions-test json-test json-suite-test suite-metadata-test suite-events-test parse-unsupported-test parse-progress parse-suite-test ## Run the full test suite.
 
 .PHONY: events-test
 events-test: ## Round-trip the TSV event format.
@@ -18,6 +18,10 @@ regressions-test: ## Run the regression fixtures.
 .PHONY: json-test
 json-test: ## Check the events-to-JSON emitter.
 	sh test/run-json.sh "$(AWK)"
+
+.PHONY: json-suite-test
+json-suite-test: ## Compare JSON output against upstream in.json fixtures.
+	sh test/run-json-suite.sh "$(AWK)"
 
 .PHONY: suite-metadata-test
 suite-metadata-test: ## Sanity-check the vendored yaml-test-suite snapshot.
@@ -42,3 +46,23 @@ parse-progress: ## Report parser pass rate across convertible fixtures.
 .PHONY: clean
 clean: ## Remove generated build artifacts.
 	rm -rf build
+
+PARSER_SOURCES = src/yaml_events.awk src/yaml_parse.awk
+JSON_SOURCES = src/yaml_events.awk src/yaml_json.awk
+
+.PHONY: build
+build: build/awkyaml build/awkyaml-json ## Build single-file awk tools into build/.
+
+build/awkyaml: $(PARSER_SOURCES)
+	@mkdir -p build
+	@echo '#!/usr/bin/awk -f' > $@.tmp
+	@cat $(PARSER_SOURCES) >> $@.tmp
+	@chmod +x $@.tmp
+	@mv $@.tmp $@
+
+build/awkyaml-json: $(JSON_SOURCES)
+	@mkdir -p build
+	@echo '#!/usr/bin/awk -f' > $@.tmp
+	@cat $(JSON_SOURCES) >> $@.tmp
+	@chmod +x $@.tmp
+	@mv $@.tmp $@
