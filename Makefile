@@ -1,11 +1,15 @@
 AWK ?= awk
 
 .PHONY: test
-test: events-test suite-metadata-test suite-events-test parse-unsupported-test parse-progress parse-suite-test
+test: events-test regressions-test suite-metadata-test suite-events-test parse-unsupported-test parse-progress parse-suite-test
 
 .PHONY: events-test
 events-test:
 	test/run-events.sh "$(AWK)"
+
+.PHONY: regressions-test
+regressions-test:
+	sh test/run-regressions.sh "$(AWK)"
 
 .PHONY: suite-metadata-test
 suite-metadata-test:

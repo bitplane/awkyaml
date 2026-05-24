@@ -53,9 +53,25 @@ DOC_END	0
 
 ## Scope
 
-The parser should eventually target YAML as a real data language, including
-flow collections, anchors, aliases, tags, block scalars, and multi-document
-streams. Shell assignments are an output emitter, not the internal model.
+awkyaml targets a JSON-compatible YAML profile for configuration and static-site
+data. YAML features that map cleanly to JSON-like data are in scope:
+
+- scalar string mapping keys
+- block and flow mappings/sequences
+- quoted, plain, and block scalar values
+- anchors and aliases for values
+- tags in the event stream, even if downstream emitters ignore them
+- multi-document streams
+
+Complex mapping keys are out of scope for the current event model. YAML permits
+sequences and mappings as keys, but JSON, shell variables, and Liquid-style data
+models do not. awkyaml therefore treats those upstream suite cases as explicitly
+unsupported instead of adding a structural event model that downstream emitters
+cannot use.
+
+Shell assignments, JSON output, and Liquid-style data loading are output
+emitters layered on top of the event stream; this repository is currently the
+parser and event-stream core.
 
 ## Tests
 
