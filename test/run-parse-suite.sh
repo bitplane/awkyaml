@@ -18,7 +18,7 @@ while IFS= read -r test_id; do
 
     "$awk_bin" -f src/lib/events.awk -f src/yaml_suite_events.awk \
         "$suite_dir/$test_id/test.event" > "$tmp_expected"
-    "$parser_bin" "$suite_dir/$test_id/in.yaml" > "$tmp_actual"
+    "$awk_bin" -f "$parser_bin" "$suite_dir/$test_id/in.yaml" > "$tmp_actual"
 
     if diff -u "$tmp_expected" "$tmp_actual"; then
         passed=$((passed + 1))

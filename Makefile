@@ -17,15 +17,15 @@ lib-purity-test: ## Verify src/lib contains functions only.
 
 .PHONY: regressions-test
 regressions-test: ## Run the regression fixtures.
-	sh test/run-regressions.sh build/awkyaml
+	sh test/run-regressions.sh "$(AWK)" build/awkyaml
 
 .PHONY: json-test
 json-test: ## Check the events-to-JSON emitter.
-	sh test/run-json.sh build/awkyaml build/awkyaml-json
+	sh test/run-json.sh "$(AWK)" build/awkyaml build/awkyaml-json
 
 .PHONY: json-suite-test
 json-suite-test: ## Compare JSON output against upstream in.json fixtures.
-	sh test/run-json-suite.sh build/awkyaml build/awkyaml-json
+	sh test/run-json-suite.sh "$(AWK)" build/awkyaml build/awkyaml-json
 
 .PHONY: suite-metadata-test
 suite-metadata-test: ## Sanity-check the vendored yaml-test-suite snapshot.

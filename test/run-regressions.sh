@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
 
-parser_bin=$1
+awk_bin=$1
+parser_bin=$2
 tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/awkyaml-regressions.XXXXXX")
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
@@ -16,7 +17,7 @@ run_case() {
     printf '%b' "$input" > "$tmp_dir/in.yaml"
     printf '%b' "$expected" > "$tmp_dir/expected.events"
 
-    if "$parser_bin" "$tmp_dir/in.yaml" > "$tmp_dir/actual.events" &&
+    if "$awk_bin" -f "$parser_bin" "$tmp_dir/in.yaml" > "$tmp_dir/actual.events" &&
         diff -u "$tmp_dir/expected.events" "$tmp_dir/actual.events"; then
         passed=$((passed + 1))
     else

@@ -1,8 +1,9 @@
 #!/bin/sh
 set -eu
 
-parser_bin=$1
-json_bin=$2
+awk_bin=$1
+parser_bin=$2
+json_bin=$3
 tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/awkyaml-json.XXXXXX")
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
@@ -17,8 +18,8 @@ run_json_case() {
     printf '%b' "$input" > "$tmp_dir/in.yaml"
     printf '%s\n' "$expected" > "$tmp_dir/expected.json"
 
-    if "$parser_bin" "$tmp_dir/in.yaml" |
-        "$json_bin" > "$tmp_dir/actual.json" &&
+    if "$awk_bin" -f "$parser_bin" "$tmp_dir/in.yaml" |
+        "$awk_bin" -f "$json_bin" > "$tmp_dir/actual.json" &&
         diff -u "$tmp_dir/expected.json" "$tmp_dir/actual.json"; then
         passed=$((passed + 1))
     else

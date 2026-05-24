@@ -30,7 +30,7 @@ while IFS= read -r in_yaml; do
         continue
     fi
 
-    "$parser_bin" "$in_yaml" > "$tmp_actual" 2>/dev/null || true
+    "$awk_bin" -f "$parser_bin" "$in_yaml" > "$tmp_actual" 2>/dev/null || true
 
     if cmp -s "$tmp_expected" "$tmp_actual"; then
         passed=$((passed + 1))
