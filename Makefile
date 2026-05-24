@@ -52,7 +52,8 @@ clean: ## Remove generated build artifacts.
 	rm -rf build
 
 EVENTS = src/lib/events.awk
-AWKYAML_SRCS = $(EVENTS) src/lib/parse.awk src/main/awkyaml.awk
+PARSER_LIBS = src/lib/parse-core.awk src/lib/parse-scalar.awk src/lib/parse-block-scalar.awk src/lib/parse-flow.awk src/lib/parse-line.awk
+AWKYAML_SRCS = $(EVENTS) $(PARSER_LIBS) src/main/awkyaml.awk
 AWKYAML_JSON_SRCS = $(EVENTS) src/lib/json.awk src/main/awkyaml-json.awk
 
 .PHONY: build
