@@ -1,4 +1,6 @@
 AWK ?= awk
+PREFIX ?= $(HOME)/.local
+BINDIR ?= $(PREFIX)/bin
 
 .PHONY: help
 help: ## Show this help.
@@ -63,6 +65,14 @@ AWKYAML_KV_SRCS = $(EVENTS) src/lib/kv.awk src/main/awkyaml-kv.awk
 
 .PHONY: build
 build: build/awkyaml build/awkyaml-json build/awkyaml-kv ## Build single-file awk tools into build/.
+
+.PHONY: install
+install: build ## Install awkyaml tools into BINDIR, default ~/.local/bin.
+	mkdir -p "$(BINDIR)"
+	cp build/awkyaml "$(BINDIR)/awkyaml"
+	cp build/awkyaml-json "$(BINDIR)/awkyaml-json"
+	cp build/awkyaml-kv "$(BINDIR)/awkyaml-kv"
+	chmod +x "$(BINDIR)/awkyaml" "$(BINDIR)/awkyaml-json" "$(BINDIR)/awkyaml-kv"
 
 build/awkyaml: $(AWKYAML_SRCS) scripts/bundle.sh
 	@mkdir -p build
