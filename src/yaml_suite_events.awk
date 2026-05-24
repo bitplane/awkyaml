@@ -120,6 +120,9 @@ function suite_event_scalar(rest,    path, tag, style, value) {
 
     path = suite_event_path_for_value(value)
     if (path == "\034KEY\034") {
+        if (suite_anchor != "") {
+            yaml_event_emit_key_anchor(suite_doc_id, suite_anchor, value)
+        }
         return
     }
 
@@ -140,7 +143,7 @@ function suite_event_scalar(rest,    path, tag, style, value) {
         style = "folded"
     }
 
-    yaml_event_emit_scalar(suite_doc_id, path, tag, suite_anchor, style, value)
+    yaml_event_emit_scalar(suite_doc_id, path, tag, suite_anchor, style, value, (suite_tag != "" ? "explicit-tag" : ""))
 }
 
 function suite_event_alias(rest,    path, name) {

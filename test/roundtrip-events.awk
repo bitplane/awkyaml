@@ -19,9 +19,11 @@ BEGIN {
     } else if (event == "SEQ_END") {
         yaml_event_emit_seq_end(fields[2], fields[3])
     } else if (event == "SCALAR") {
-        yaml_event_emit_scalar(fields[2], fields[3], fields[4], fields[5], fields[6], fields[7])
+        yaml_event_emit_scalar(fields[2], fields[3], fields[4], fields[5], fields[6], fields[7], fields[8])
     } else if (event == "ALIAS") {
         yaml_event_emit_alias(fields[2], fields[3], fields[4])
+    } else if (event == "KEY_ANCHOR") {
+        yaml_event_emit_key_anchor(fields[2], fields[3], fields[4])
     } else {
         print "unknown event: " event > "/dev/stderr"
         ok = 0

@@ -23,12 +23,51 @@ function yaml_json_escape(text,    out, i, ch) {
     return "\"" out "\""
 }
 
-function yaml_json_path_key(path,    parts, count) {
+function yaml_json_hex_digit(ch) {
+    if (ch >= "0" && ch <= "9") {
+        return ch + 0
+    }
+    if (ch >= "A" && ch <= "F") {
+        return index("ABCDEF", ch) + 9
+    }
+    if (ch >= "a" && ch <= "f") {
+        return index("abcdef", ch) + 9
+    }
+    return 0
+}
+
+function yaml_json_hex_value(hex,    i, n) {
+    n = 0
+    for (i = 1; i <= length(hex); i++) {
+        n = n * 16 + yaml_json_hex_digit(substr(hex, i, 1))
+    }
+    return n
+}
+
+function yaml_json_number(value) {
+    sub(/^\+/, "", value)
+    if (value ~ /^[+-]?[0-9]+[.][0-9]+$/) {
+        sub(/0+$/, "", value)
+        sub(/[.]$/, "", value)
+    }
+    return value
+}
+
+function yaml_json_path_key(path,    i, ch, prev, key) {
     if (path == "") {
         return ""
     }
-    count = split(path, parts, "/")
-    return parts[count]
+    key = ""
+    for (i = 1; i <= length(path); i++) {
+        ch = substr(path, i, 1)
+        prev = substr(path, i - 1, 1)
+        if (ch == "/" && prev != "\\") {
+            key = ""
+        } else {
+            key = key ch
+        }
+    }
+    return yaml_event_unescape(yaml_event_unescape(key))
 }
 
 function yaml_json_prefix(path,    key) {
@@ -68,18 +107,30 @@ function yaml_json_scalar(tag, style, value) {
     if (style != "plain" && style != "") {
         return yaml_json_escape(value)
     }
+    if (tag == "!") {
+        return yaml_json_escape(value)
+    }
+    if (yaml_json_fields[8] == "explicit-tag" && tag == "tag:yaml.org,2002:str") {
+        return yaml_json_escape(value)
+    }
     if (tag == "tag:yaml.org,2002:null" || value == "" || value == "~" || value == "null" || value == "Null" || value == "NULL") {
         return "null"
     }
-    if (tag == "tag:yaml.org,2002:bool" || value == "true" || value == "True" || value == "TRUE") {
+    if (tag == "tag:yaml.org,2002:bool") {
+        return (value == "false" || value == "False" || value == "FALSE") ? "false" : "true"
+    }
+    if (value == "true" || value == "True" || value == "TRUE") {
         return "true"
     }
-    if (tag == "tag:yaml.org,2002:bool" || value == "false" || value == "False" || value == "FALSE") {
+    if (value == "false" || value == "False" || value == "FALSE") {
         return "false"
     }
-    if (value ~ /^[-+]?(0|[1-9][0-9]*)$/ || value ~ /^[-+]?(0|[1-9][0-9]*)[.][0-9]+([eE][-+]?[0-9]+)?$/ || value ~ /^[-+]?[0-9]+[eE][-+]?[0-9]+$/) {
+    if (value ~ /^[-+]?0x[0-9A-Fa-f]+$/) {
         sub(/^\+/, "", value)
-        return value
+        return (substr(value, 1, 1) == "-" ? "-" yaml_json_hex_value(substr(value, 4)) : yaml_json_hex_value(substr(value, 3)))
+    }
+    if (value ~ /^[-+]?(0|[1-9][0-9]*)$/ || value ~ /^[-+]?(0|[1-9][0-9]*)[.][0-9]+([eE][-+]?[0-9]+)?$/ || value ~ /^[-+]?[0-9]+[eE][-+]?[0-9]+$/) {
+        return yaml_json_number(value)
     }
     return yaml_json_escape(value)
 }
@@ -93,6 +144,7 @@ function yaml_json_emit_document() {
 }
 
 {
+    split($0, yaml_json_raw_fields, "\t")
     yaml_event_read($0, yaml_json_fields)
     yaml_json_event = yaml_json_fields[1]
     if (yaml_json_event == "DOC_START") {
@@ -103,7 +155,7 @@ function yaml_json_emit_document() {
     } else if (yaml_json_event == "DOC_END") {
         yaml_json_emit_document()
     } else if (yaml_json_event == "MAP_START") {
-        yaml_json_prefix(yaml_json_fields[3])
+        yaml_json_prefix(yaml_json_raw_fields[3])
         yaml_json_value_start = length(yaml_json_out) + 1
         yaml_json_out = yaml_json_out "{"
         yaml_json_push("map")
@@ -113,7 +165,7 @@ function yaml_json_emit_document() {
         yaml_json_out = yaml_json_out "}"
         yaml_json_pop()
     } else if (yaml_json_event == "SEQ_START") {
-        yaml_json_prefix(yaml_json_fields[3])
+        yaml_json_prefix(yaml_json_raw_fields[3])
         yaml_json_value_start = length(yaml_json_out) + 1
         yaml_json_out = yaml_json_out "["
         yaml_json_push("seq")
@@ -124,18 +176,20 @@ function yaml_json_emit_document() {
         yaml_json_pop()
     } else if (yaml_json_event == "SCALAR") {
         yaml_json_value = yaml_json_scalar(yaml_json_fields[4], yaml_json_fields[6], yaml_json_fields[7])
-        yaml_json_prefix(yaml_json_fields[3])
+        yaml_json_prefix(yaml_json_raw_fields[3])
         yaml_json_out = yaml_json_out yaml_json_value
         if (yaml_json_fields[5] != "") {
             yaml_json_anchor_value[yaml_json_fields[5]] = yaml_json_value
         }
     } else if (yaml_json_event == "ALIAS") {
-        yaml_json_prefix(yaml_json_fields[3])
+        yaml_json_prefix(yaml_json_raw_fields[3])
         if (yaml_json_fields[4] in yaml_json_anchor_value) {
             yaml_json_out = yaml_json_out yaml_json_anchor_value[yaml_json_fields[4]]
         } else {
             yaml_json_out = yaml_json_out "null"
         }
+    } else if (yaml_json_event == "KEY_ANCHOR") {
+        yaml_json_anchor_value[yaml_json_fields[3]] = yaml_json_escape(yaml_json_fields[4])
     }
 }
 

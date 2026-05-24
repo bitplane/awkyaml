@@ -52,6 +52,10 @@ function yaml_event_unescape(text,    out, i, ch, next_ch) {
                 out = out "\n"
             } else if (next_ch == "r") {
                 out = out "\r"
+            } else if (next_ch == "b") {
+                out = out "\b"
+            } else if (next_ch == "f") {
+                out = out "\f"
             } else if (next_ch == "\\" || next_ch == "/") {
                 out = out next_ch
             } else {
@@ -97,12 +101,20 @@ function yaml_event_emit_seq_end(doc_id, path) {
     print "SEQ_END" "\t" doc_id "\t" yaml_event_escape_path(path)
 }
 
-function yaml_event_emit_scalar(doc_id, path, tag, anchor, style, value) {
-    print "SCALAR" "\t" doc_id "\t" yaml_event_escape_path(path) "\t" yaml_event_escape(tag) "\t" yaml_event_escape(anchor) "\t" yaml_event_escape(style) "\t" yaml_event_escape(value)
+function yaml_event_emit_scalar(doc_id, path, tag, anchor, style, value, meta) {
+    if (meta != "") {
+        print "SCALAR" "\t" doc_id "\t" yaml_event_escape_path(path) "\t" yaml_event_escape(tag) "\t" yaml_event_escape(anchor) "\t" yaml_event_escape(style) "\t" yaml_event_escape(value) "\t" yaml_event_escape(meta)
+    } else {
+        print "SCALAR" "\t" doc_id "\t" yaml_event_escape_path(path) "\t" yaml_event_escape(tag) "\t" yaml_event_escape(anchor) "\t" yaml_event_escape(style) "\t" yaml_event_escape(value)
+    }
 }
 
 function yaml_event_emit_alias(doc_id, path, anchor_name) {
     print "ALIAS" "\t" doc_id "\t" yaml_event_escape_path(path) "\t" yaml_event_escape(anchor_name)
+}
+
+function yaml_event_emit_key_anchor(doc_id, anchor_name, value) {
+    print "KEY_ANCHOR" "\t" doc_id "\t" yaml_event_escape(anchor_name) "\t" yaml_event_escape(value)
 }
 
 function yaml_event_read(line, fields,    i, count) {

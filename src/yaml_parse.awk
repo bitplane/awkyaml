@@ -64,6 +64,7 @@ function yaml_parse_end_document(    i) {
         yaml_parse_pending_item_path = ""
         yaml_parse_pending_node_anchor = ""
         yaml_parse_pending_node_tag = ""
+        yaml_parse_pending_node_tag_explicit = 0
         yaml_parse_failed = 0
         yaml_parse_ignore_to_doc_end = 0
         yaml_parse_empty_doc_pending = 0
@@ -134,6 +135,7 @@ function yaml_parse_close_for_line(indent, seq_item) {
 function yaml_parse_start_seq(path, indent,    anchor, tag) {
     anchor = yaml_parse_take_pending_anchor()
     tag = yaml_parse_take_pending_tag()
+    yaml_parse_take_pending_tag_explicit()
     if (tag == "") {
         tag = "tag:yaml.org,2002:seq"
     }
@@ -148,6 +150,7 @@ function yaml_parse_start_seq(path, indent,    anchor, tag) {
 function yaml_parse_start_map(path, indent,    anchor, tag) {
     anchor = yaml_parse_take_pending_anchor()
     tag = yaml_parse_take_pending_tag()
+    yaml_parse_take_pending_tag_explicit()
     if (tag == "") {
         tag = "tag:yaml.org,2002:map"
     }
@@ -170,6 +173,12 @@ function yaml_parse_take_pending_tag(    tag) {
     return tag
 }
 
+function yaml_parse_take_pending_tag_explicit(    explicit) {
+    explicit = yaml_parse_pending_node_tag_explicit
+    yaml_parse_pending_node_tag_explicit = 0
+    return explicit
+}
+
 function yaml_parse_pending_node_property(text,    token) {
     text = yaml_parse_trim(text)
     text = yaml_parse_strip_inline_comment(text)
@@ -189,6 +198,7 @@ function yaml_parse_pending_node_property(text,    token) {
             } else {
                 yaml_parse_pending_node_tag = yaml_parse_resolve_tag(token)
             }
+            yaml_parse_pending_node_tag_explicit = 1
             return 1
         }
     }
@@ -243,7 +253,7 @@ function yaml_parse_next_seq_item_path(indent,    seq_path, item_index) {
     return yaml_event_path_join(seq_path, item_index)
 }
 
-function yaml_parse_emit_scalar(path, value,    parsed, tag, anchor) {
+function yaml_parse_emit_scalar(path, value,    parsed, tag, anchor, explicit_tag) {
     parsed = yaml_parse_scalar(value)
     if (yaml_parse_failed) {
         return
@@ -256,14 +266,16 @@ function yaml_parse_emit_scalar(path, value,    parsed, tag, anchor) {
         yaml_event_emit_alias(yaml_parse_doc_id, path, yaml_parse_scalar_anchor)
     } else {
         tag = yaml_parse_take_pending_tag()
+        explicit_tag = yaml_parse_take_pending_tag_explicit()
         if (tag == "") {
             tag = yaml_parse_scalar_tag
+            explicit_tag = yaml_parse_scalar_tag_explicit
         }
         anchor = yaml_parse_take_pending_anchor()
         if (anchor == "") {
             anchor = yaml_parse_scalar_anchor
         }
-        yaml_event_emit_scalar(yaml_parse_doc_id, path, tag, anchor, yaml_parse_scalar_style, yaml_parse_scalar_value_text)
+        yaml_event_emit_scalar(yaml_parse_doc_id, path, tag, anchor, yaml_parse_scalar_style, yaml_parse_scalar_value_text, (explicit_tag ? "explicit-tag" : ""))
         if (anchor != "") {
             yaml_parse_anchor_scalar_value[anchor] = yaml_parse_scalar_value_text
         }
@@ -297,15 +309,18 @@ function yaml_parse_extract_node_properties(text,    token) {
                 return ""
             }
             yaml_parse_pending_node_tag = yaml_parse_tag_handle["!!"] substr(token, 3)
+            yaml_parse_pending_node_tag_explicit = 1
             text = yaml_parse_trim(yaml_parse_strip_inline_comment(substr(text, length(token) + 1)))
         } else if (substr(text, 1, 2) == "!<" && index(text, ">")) {
             token = substr(text, 1, index(text, ">"))
             yaml_parse_pending_node_tag = substr(token, 3, length(token) - 3)
+            yaml_parse_pending_node_tag_explicit = 1
             text = yaml_parse_trim(yaml_parse_strip_inline_comment(substr(text, length(token) + 1)))
         } else if (substr(text, 1, 1) == "!") {
             token = text
             sub(/[ \t].*$/, "", token)
             yaml_parse_pending_node_tag = yaml_parse_resolve_tag(token)
+            yaml_parse_pending_node_tag_explicit = 1
             text = yaml_parse_trim(yaml_parse_strip_inline_comment(substr(text, length(token) + 1)))
         } else {
             break
@@ -471,6 +486,7 @@ function yaml_parse_start_quoted_scalar(path, value, indent) {
     yaml_parse_quote_indent = indent
     yaml_parse_quote_text = value
     yaml_parse_quote_tag = yaml_parse_take_pending_tag()
+    yaml_parse_quote_tag_explicit = yaml_parse_take_pending_tag_explicit()
     if (yaml_parse_quote_tag == "") {
         yaml_parse_quote_tag = "tag:yaml.org,2002:str"
     }
@@ -495,11 +511,12 @@ function yaml_parse_finish_quoted_scalar(    value, quote, style) {
     value = yaml_parse_multiline_quoted_value(yaml_parse_quote_text)
     quote = substr(yaml_parse_trim(yaml_parse_quote_text), 1, 1)
     style = (quote == "\"" ? "double" : "single")
-    yaml_event_emit_scalar(yaml_parse_doc_id, yaml_parse_quote_path, yaml_parse_quote_tag, yaml_parse_quote_anchor, style, value)
+    yaml_event_emit_scalar(yaml_parse_doc_id, yaml_parse_quote_path, yaml_parse_quote_tag, yaml_parse_quote_anchor, style, value, (yaml_parse_quote_tag_explicit ? "explicit-tag" : ""))
     yaml_parse_pending_quote = 0
     yaml_parse_quote_path = ""
     yaml_parse_quote_text = ""
     yaml_parse_quote_tag = ""
+    yaml_parse_quote_tag_explicit = 0
     yaml_parse_quote_anchor = ""
 }
 
@@ -596,6 +613,7 @@ function yaml_parse_start_block_scalar(path, indicator, indent,    trimmed, expl
     yaml_parse_block_parent_indent = indent
     yaml_parse_block_indentless = (path == "" && indent == 0)
     yaml_parse_block_tag = yaml_parse_take_pending_tag()
+    yaml_parse_block_tag_explicit = yaml_parse_take_pending_tag_explicit()
     if (yaml_parse_block_tag == "") {
         yaml_parse_block_tag = "tag:yaml.org,2002:str"
     }
@@ -703,7 +721,7 @@ function yaml_parse_finish_block_scalar(    text) {
         yaml_parse_stack_pending_value_path[yaml_parse_block_key_depth] = yaml_event_path_join(yaml_parse_stack_path[yaml_parse_block_key_depth], text)
         yaml_parse_stack_pending_container_value[yaml_parse_block_key_depth] = 0
     } else {
-        yaml_event_emit_scalar(yaml_parse_doc_id, yaml_parse_block_path, yaml_parse_block_tag, yaml_parse_block_anchor, yaml_parse_block_scalar_style_name(), text)
+        yaml_event_emit_scalar(yaml_parse_doc_id, yaml_parse_block_path, yaml_parse_block_tag, yaml_parse_block_anchor, yaml_parse_block_scalar_style_name(), text, (yaml_parse_block_tag_explicit ? "explicit-tag" : ""))
     }
     yaml_parse_pending_block = 0
     yaml_parse_block_path = ""
@@ -713,6 +731,7 @@ function yaml_parse_finish_block_scalar(    text) {
     yaml_parse_block_blank_after_text = 0
     yaml_parse_block_leading_blank_indent = 0
     yaml_parse_block_tag = ""
+    yaml_parse_block_tag_explicit = 0
     yaml_parse_block_anchor = ""
     yaml_parse_block_is_key = 0
     yaml_parse_block_key_depth = 0
@@ -726,8 +745,10 @@ function yaml_parse_plain_scalar_candidate(value,    parsed) {
 function yaml_parse_start_plain_scalar(path, value, indent, root_continues,    tag, anchor) {
     yaml_parse_scalar(value)
     tag = yaml_parse_take_pending_tag()
+    yaml_parse_plain_tag_explicit = yaml_parse_take_pending_tag_explicit()
     if (tag == "") {
         tag = yaml_parse_scalar_tag
+        yaml_parse_plain_tag_explicit = yaml_parse_scalar_tag_explicit
     }
     anchor = yaml_parse_take_pending_anchor()
     if (anchor == "") {
@@ -775,7 +796,7 @@ function yaml_parse_finish_plain_scalar() {
     if (!yaml_parse_pending_plain) {
         return
     }
-    yaml_event_emit_scalar(yaml_parse_doc_id, yaml_parse_plain_path, yaml_parse_plain_tag, yaml_parse_plain_anchor, "plain", yaml_parse_plain_text)
+    yaml_event_emit_scalar(yaml_parse_doc_id, yaml_parse_plain_path, yaml_parse_plain_tag, yaml_parse_plain_anchor, "plain", yaml_parse_plain_text, (yaml_parse_plain_tag_explicit ? "explicit-tag" : ""))
     if (yaml_parse_plain_anchor != "") {
         yaml_parse_anchor_scalar_value[yaml_parse_plain_anchor] = yaml_parse_plain_text
     }
@@ -784,6 +805,7 @@ function yaml_parse_finish_plain_scalar() {
     yaml_parse_plain_text = ""
     yaml_parse_plain_blank = 0
     yaml_parse_plain_comment_break = 0
+    yaml_parse_plain_tag_explicit = 0
 }
 
 function yaml_parse_line_continues_plain(line, indent) {
@@ -1201,6 +1223,7 @@ function yaml_parse_utf8(cp) {
 function yaml_parse_scalar(text,    token, tag) {
     text = yaml_parse_trim(text)
     yaml_parse_scalar_tag = "tag:yaml.org,2002:str"
+    yaml_parse_scalar_tag_explicit = 0
     yaml_parse_scalar_anchor = ""
     yaml_parse_scalar_style = "plain"
 
@@ -1218,15 +1241,18 @@ function yaml_parse_scalar(text,    token, tag) {
                 return "scalar"
             }
             yaml_parse_scalar_tag = yaml_parse_tag_handle["!!"] substr(token, 3)
+            yaml_parse_scalar_tag_explicit = 1
             text = yaml_parse_trim(substr(text, length(token) + 1))
         } else if (substr(text, 1, 2) == "!<" && index(text, ">")) {
             token = substr(text, 1, index(text, ">"))
             yaml_parse_scalar_tag = substr(token, 3, length(token) - 3)
+            yaml_parse_scalar_tag_explicit = 1
             text = yaml_parse_trim(substr(text, length(token) + 1))
         } else if (substr(text, 1, 1) == "!") {
             token = text
             sub(/[ \t].*$/, "", token)
             yaml_parse_scalar_tag = yaml_parse_resolve_tag(token)
+            yaml_parse_scalar_tag_explicit = 1
             text = yaml_parse_trim(substr(text, length(token) + 1))
         } else {
             break
@@ -1465,6 +1491,9 @@ function yaml_parse_explicit_value(text, indent,    value, child_path, item_path
 
 function yaml_parse_key_text(text,    parsed, anchor) {
     parsed = yaml_parse_scalar(text)
+    if (yaml_parse_failed) {
+        return yaml_parse_scalar_value_text
+    }
     if (parsed == "alias") {
         anchor = yaml_parse_scalar_anchor
         if (anchor in yaml_parse_anchor_scalar_value) {
@@ -1474,6 +1503,7 @@ function yaml_parse_key_text(text,    parsed, anchor) {
     }
     if (yaml_parse_scalar_anchor != "") {
         yaml_parse_anchor_scalar_value[yaml_parse_scalar_anchor] = yaml_parse_scalar_value_text
+        yaml_event_emit_key_anchor(yaml_parse_doc_id, yaml_parse_scalar_anchor, yaml_parse_scalar_value_text)
     }
     return yaml_parse_scalar_value_text
 }
