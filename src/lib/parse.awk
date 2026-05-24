@@ -1,4 +1,4 @@
-BEGIN {
+function yaml_parse_init() {
     yaml_parse_doc_id = 0
     yaml_parse_started = 0
     yaml_parse_tag_handle["!!"] = "tag:yaml.org,2002:"
@@ -2121,17 +2121,4 @@ function yaml_parse_read_tag_directive(line,    parts) {
     if (parts[2] != "" && parts[3] != "") {
         yaml_parse_tag_handle[parts[2]] = parts[3]
     }
-}
-
-{
-    yaml_parse_line($0)
-}
-
-END {
-    if (yaml_parse_pending_flow && yaml_parse_partial_incomplete_outer_sequence(yaml_parse_flow_buffer, yaml_parse_pending_flow_path)) {
-        yaml_parse_error()
-    }
-    yaml_parse_start_deferred_document()
-    yaml_parse_finish_block_scalar()
-    yaml_parse_finish()
 }

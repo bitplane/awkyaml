@@ -2,6 +2,7 @@
 set -eu
 
 awk_bin=$1
+parser_bin=$2
 suite_dir=test/yaml-test-suite
 tier_file=test/parse-core.txt
 tmp_expected=$(mktemp "${TMPDIR:-/tmp}/awkyaml-expected.XXXXXX")
@@ -15,10 +16,9 @@ while IFS= read -r test_id; do
         ''|'#'*) continue ;;
     esac
 
-    "$awk_bin" -f src/yaml_events.awk -f src/yaml_suite_events.awk \
+    "$awk_bin" -f src/lib/events.awk -f src/yaml_suite_events.awk \
         "$suite_dir/$test_id/test.event" > "$tmp_expected"
-    "$awk_bin" -f src/yaml_events.awk -f src/yaml_parse.awk \
-        "$suite_dir/$test_id/in.yaml" > "$tmp_actual"
+    "$parser_bin" "$suite_dir/$test_id/in.yaml" > "$tmp_actual"
 
     if diff -u "$tmp_expected" "$tmp_actual"; then
         passed=$((passed + 1))

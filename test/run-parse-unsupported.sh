@@ -14,7 +14,7 @@ find "$suite_dir" -name in.yaml | sort | while IFS= read -r in_yaml; do
     test_id=${test_dir#"$suite_dir"/}
     test -f "$test_dir/test.event" || continue
 
-    if ! "$awk_bin" -f src/yaml_events.awk -f src/yaml_suite_events.awk \
+    if ! "$awk_bin" -f src/lib/events.awk -f src/yaml_suite_events.awk \
         "$test_dir/test.event" > "$tmp_out" 2>/dev/null; then
         printf '%s\n' "$test_id"
     fi

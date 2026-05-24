@@ -14,7 +14,7 @@ while IFS= read -r test_id; do
 
     event_file=$suite_dir/$test_id/test.event
     if test -f "$event_file" &&
-        "$awk_bin" -f src/yaml_events.awk -f src/yaml_suite_events.awk "$event_file" >/dev/null; then
+        "$awk_bin" -f src/lib/events.awk -f src/yaml_suite_events.awk "$event_file" >/dev/null; then
         passed=$((passed + 1))
     else
         failed=$((failed + 1))

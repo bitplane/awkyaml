@@ -33,9 +33,15 @@ MAP_START<TAB>doc_id<TAB>path<TAB>tag<TAB>anchor
 MAP_END<TAB>doc_id<TAB>path
 SEQ_START<TAB>doc_id<TAB>path<TAB>tag<TAB>anchor
 SEQ_END<TAB>doc_id<TAB>path
-SCALAR<TAB>doc_id<TAB>path<TAB>tag<TAB>anchor<TAB>style<TAB>value
+SCALAR<TAB>doc_id<TAB>path<TAB>tag<TAB>anchor<TAB>style<TAB>value[<TAB>meta]
 ALIAS<TAB>doc_id<TAB>path<TAB>anchor_name
+KEY_ANCHOR<TAB>doc_id<TAB>anchor_name<TAB>value
 ```
+
+The optional `SCALAR` metadata field currently uses `explicit-tag` for scalars
+whose tag was written explicitly in the source. `KEY_ANCHOR` records anchored
+scalar mapping keys so downstream emitters can resolve aliases without turning
+keys into value events.
 
 Example:
 
@@ -73,19 +79,38 @@ Shell assignments, JSON output, and Liquid-style data loading are output
 emitters layered on top of the event stream; this repository is currently the
 parser and event-stream core.
 
+## Build
+
+`make build` creates single-file tools in `build/` by concatenating pure
+function libraries from `src/lib/` with one action-block main from `src/main/`.
+Libraries must not contain `BEGIN`, `END`, or top-level pattern/action blocks;
+`make test` includes a purity check for that rule.
+
+```text
+build/awkyaml
+build/awkyaml-json
+```
+
 ## Tests
 
-`make test` currently runs four layers:
+`make test` builds the release-style tools, then runs:
 
+- library purity checks for `src/lib/`
 - event round-trip tests for awkyaml's TSV event format
+- project parser regressions
+- JSON emitter smoke tests
+- upstream `in.json` parity tests
 - metadata checks for the vendored `yaml/yaml-test-suite` data snapshot
+- suite-event conversion checks
 - an unsupported-fixture manifest check for upstream event streams that cannot
   be represented by the current path-based event model
-- parser comparisons for the IDs listed in `test/parse-core.txt`
+- parser progress and full parser comparison tests for the IDs listed in
+  `test/parse-core.txt`
 
 The parser comparison converts upstream `test.event` files into awkyaml TSV
-events with `src/yaml_suite_events.awk`, parses the matching `in.yaml` with
-`src/yaml_parse.awk`, then diffs the two normalized streams.
+events with `src/lib/events.awk` and `src/yaml_suite_events.awk`, parses the
+matching `in.yaml` with `build/awkyaml`, then diffs the two normalized streams.
+JSON parity tests pipe `build/awkyaml` into `build/awkyaml-json`.
 
 Add new upstream suite IDs to `test/parse-core.txt` as parser coverage expands.
 If an upstream event stream is not representable yet, list it in

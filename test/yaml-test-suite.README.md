@@ -19,4 +19,4 @@ may include:
 - `===`: short test label
 
 We will use this suite as the external compatibility target, while keeping
-`src/yaml_events.awk` responsible for awkyaml's own normalized event stream.
+`src/lib/events.awk` responsible for awkyaml's own normalized event stream.

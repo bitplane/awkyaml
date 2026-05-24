@@ -2,6 +2,7 @@
 set -eu
 
 awk_bin=$1
+parser_bin=$2
 suite_dir=test/yaml-test-suite
 tmp_expected=$(mktemp "${TMPDIR:-/tmp}/awkyaml-progress-expected.XXXXXX")
 tmp_actual=$(mktemp "${TMPDIR:-/tmp}/awkyaml-progress-actual.XXXXXX")
@@ -21,7 +22,7 @@ while IFS= read -r in_yaml; do
     test -f "$test_dir/test.event" || continue
 
     total=$((total + 1))
-    if "$awk_bin" -f src/yaml_events.awk -f src/yaml_suite_events.awk \
+    if "$awk_bin" -f src/lib/events.awk -f src/yaml_suite_events.awk \
         "$test_dir/test.event" > "$tmp_expected" 2>/dev/null; then
         convertible=$((convertible + 1))
     else
@@ -29,8 +30,7 @@ while IFS= read -r in_yaml; do
         continue
     fi
 
-    "$awk_bin" -f src/yaml_events.awk -f src/yaml_parse.awk \
-        "$in_yaml" > "$tmp_actual" 2>/dev/null || true
+    "$parser_bin" "$in_yaml" > "$tmp_actual" 2>/dev/null || true
 
     if cmp -s "$tmp_expected" "$tmp_actual"; then
         passed=$((passed + 1))

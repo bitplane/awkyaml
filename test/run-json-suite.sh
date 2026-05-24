@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
 
-awk_bin=$1
+parser_bin=$1
+json_bin=$2
 suite_dir=test/yaml-test-suite
 tier_file=test/parse-core.txt
 tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/awkyaml-json-suite.XXXXXX")
@@ -30,8 +31,8 @@ while IFS= read -r test_id; do
 
     total=$((total + 1))
     if jq -cS . "$test_dir/in.json" > "$tmp_dir/expected.json" &&
-        "$awk_bin" -f src/yaml_events.awk -f src/yaml_parse.awk "$test_dir/in.yaml" |
-        "$awk_bin" -f src/yaml_events.awk -f src/yaml_json.awk |
+        "$parser_bin" "$test_dir/in.yaml" |
+        "$json_bin" |
         jq -cS . > "$tmp_dir/actual.json" &&
         diff -u "$tmp_dir/expected.json" "$tmp_dir/actual.json"; then
         passed=$((passed + 1))

@@ -6,7 +6,7 @@ awk_bin=$1
 tmp=$(mktemp "${TMPDIR:-/tmp}/awkyaml-events.XXXXXX")
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
 
-"$awk_bin" -f src/yaml_events.awk -f test/roundtrip-events.awk \
+"$awk_bin" -f src/lib/events.awk -f test/roundtrip-events.awk \
     test/events/basic.events > "$tmp"
 
 if cmp -s test/events/basic.events "$tmp"; then
