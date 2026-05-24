@@ -62,7 +62,16 @@ function yaml_parse_end_document(    i) {
         yaml_parse_empty_doc_pending = 0
         yaml_parse_root_complete = 0
         yaml_parse_seen_yaml_directive = 0
+        yaml_parse_deferred_doc_start = 0
         yaml_parse_reset_tag_handles()
+    }
+}
+
+function yaml_parse_start_deferred_document() {
+    if (yaml_parse_deferred_doc_start && !yaml_parse_failed) {
+        yaml_parse_deferred_doc_start = 0
+        yaml_parse_start_document()
+        yaml_parse_empty_doc_pending = 1
     }
 }
 
@@ -736,7 +745,7 @@ function yaml_parse_line_continues_plain(line, indent) {
     if (indent == yaml_parse_plain_indent && yaml_parse_mapping_pair(substr(line, indent + 1))) {
         return 0
     }
-    return line ~ /^[ \t]*$/ || indent >= yaml_parse_plain_indent
+    return line ~ /^[ \t]*($|#)/ || indent > yaml_parse_plain_indent || (indent == yaml_parse_plain_indent && yaml_parse_depth > 0 && yaml_parse_plain_indent > yaml_parse_stack_indent[yaml_parse_depth])
 }
 
 function yaml_parse_block_scalar_style_name() {
@@ -872,6 +881,10 @@ function yaml_parse_flow_mapping(text, path,    body, i, ch, quote, depth, token
     body = substr(body, 2, length(body) - 2)
 
     yaml_parse_start_map(path, 0)
+    if (text ~ /\n:[ \t]*(\n|$)/) {
+        yaml_parse_error()
+        return 1
+    }
     quote = ""
     depth = 0
     token = ""
@@ -902,12 +915,18 @@ function yaml_parse_flow_mapping(text, path,    body, i, ch, quote, depth, token
         }
     }
     yaml_parse_flow_mapping_item(token, path)
-    yaml_parse_close_container()
+    if (!yaml_parse_failed) {
+        yaml_parse_close_container()
+    }
     return 1
 }
 
 function yaml_parse_flow_mapping_item(text, path,    child_path) {
     if (yaml_parse_trim_flow_token(text) == "") {
+        return
+    }
+    if (text ~ /\n:[ \t]*(\n|$)/) {
+        yaml_parse_error()
         return
     }
     if (!yaml_parse_flow_mapping_pair(text)) {
@@ -916,6 +935,9 @@ function yaml_parse_flow_mapping_item(text, path,    child_path) {
             yaml_parse_key = ""
         }
         yaml_parse_value = ""
+    } else if (yaml_parse_flow_mapping_colon(yaml_parse_value)) {
+        yaml_parse_error()
+        return
     }
     child_path = yaml_event_path_join(path, yaml_parse_key_text(yaml_parse_key))
     yaml_parse_emit_value(child_path, yaml_parse_value)
@@ -1277,6 +1299,16 @@ function yaml_parse_current_map_path(indent,    child_path, parent_depth) {
     return yaml_parse_stack_path[yaml_parse_depth]
 }
 
+function yaml_parse_unsupported_compact_complex_key(text) {
+    return text ~ /^\?\t/ || text == "? -" || text ~ /^\? [^ \t].*:$/
+}
+
+function yaml_parse_emit_unsupported_complex_key_sequence(indent) {
+    yaml_parse_start_seq("", indent)
+    yaml_parse_start_seq(yaml_event_path_join("", 0), indent + 1)
+    yaml_parse_error()
+}
+
 function yaml_parse_emit_pending_map_null() {
     yaml_parse_finalize_explicit_key()
     if (yaml_parse_depth > 0 && yaml_parse_stack_type[yaml_parse_depth] == "map" && yaml_parse_stack_pending_value_path[yaml_parse_depth] != "") {
@@ -1416,6 +1448,10 @@ function yaml_parse_line(line,    indent, text, item_path, map_path, child_path,
             yaml_parse_error()
             return
         }
+        if (yaml_parse_quote_path != "" && indent < yaml_parse_quote_indent && line !~ /^[ \t]*$/) {
+            yaml_parse_error()
+            return
+        }
         if (yaml_parse_quote_path != "" && yaml_parse_quote_indent == 0 && indent <= yaml_parse_quote_indent && line !~ /^[ \t]*$/) {
             yaml_parse_error()
             return
@@ -1432,6 +1468,10 @@ function yaml_parse_line(line,    indent, text, item_path, map_path, child_path,
         return
     }
     if (yaml_parse_pending_plain && !yaml_parse_plain_root_continues && indent > yaml_parse_plain_indent && yaml_parse_mapping_pair(yaml_parse_trim(line))) {
+        yaml_parse_error()
+        return
+    }
+    if (yaml_parse_pending_plain && !yaml_parse_plain_root_continues && indent == yaml_parse_plain_indent && yaml_parse_depth > 0 && indent > yaml_parse_stack_indent[yaml_parse_depth] && yaml_parse_mapping_pair(yaml_parse_trim(line))) {
         yaml_parse_error()
         return
     }
@@ -1559,12 +1599,21 @@ function yaml_parse_line(line,    indent, text, item_path, map_path, child_path,
             yaml_parse_error()
             return
         }
+        if (yaml_parse_mapping_pair(property_text)) {
+            yaml_parse_error()
+            return
+        }
     } else if (line ~ /^---[ \t]*$/) {
+        if (!yaml_parse_started && yaml_parse_seen_yaml_directive) {
+            yaml_parse_deferred_doc_start = 1
+            return
+        }
         yaml_parse_end_document()
         yaml_parse_start_document()
         yaml_parse_empty_doc_pending = 1
         return
     } else if (line ~ /^\.\.\.([ \t]|$)/) {
+        yaml_parse_start_deferred_document()
         yaml_parse_end_document()
         return
     }
@@ -1579,9 +1628,18 @@ function yaml_parse_line(line,    indent, text, item_path, map_path, child_path,
         return
     }
 
-    yaml_parse_start_document()
+    if (yaml_parse_deferred_doc_start) {
+        yaml_parse_start_deferred_document()
+    } else {
+        yaml_parse_start_document()
+    }
     yaml_parse_empty_doc_pending = 0
     text = substr(line, indent + 1)
+
+    if (yaml_parse_unsupported_compact_complex_key(text)) {
+        yaml_parse_emit_unsupported_complex_key_sequence(indent)
+        return
+    }
 
     if (yaml_parse_pending_explicit_key && indent > yaml_parse_pending_explicit_key_indent && text !~ /^:/) {
         yaml_parse_pending_explicit_key_text = yaml_parse_pending_explicit_key_text " " yaml_parse_trim(yaml_parse_strip_inline_comment(text))
@@ -1660,6 +1718,10 @@ function yaml_parse_line(line,    indent, text, item_path, map_path, child_path,
         }
         if (yaml_parse_flow_collection_start(text)) {
             yaml_parse_emit_or_start_flow(item_path, text)
+            return
+        }
+        if (yaml_parse_quoted_scalar_start(text) && !yaml_parse_quoted_scalar_complete(text)) {
+            yaml_parse_start_quoted_scalar(item_path, text, (nested_indent > indent ? nested_indent : indent))
             return
         }
         if (text == ":" || text ~ /^:[ \t]/) {
@@ -1746,6 +1808,10 @@ function yaml_parse_line(line,    indent, text, item_path, map_path, child_path,
             } else if (yaml_parse_pending_node_anchor != "" && text ~ /^&[^ \t]+[ \t]+/) {
                 yaml_parse_error()
                 return
+            } else if (yaml_parse_pending_node_anchor != "" && yaml_parse_pending_node_tag == "" && indent <= yaml_parse_stack_indent[yaml_parse_depth] && text ~ /^!/) {
+                yaml_parse_emit_scalar(child_path, "")
+                yaml_parse_error()
+                return
             } else if (indent <= yaml_parse_stack_indent[yaml_parse_depth] && yaml_parse_pending_node_property(text)) {
                 yaml_parse_error()
                 return
@@ -1822,6 +1888,8 @@ function yaml_parse_line(line,    indent, text, item_path, map_path, child_path,
                 yaml_parse_emit_or_start_flow(child_path, property_text)
                 yaml_parse_stack_pending_value_path[yaml_parse_depth] = ""
                 yaml_parse_stack_pending_container_value[yaml_parse_depth] = 0
+            } else if (yaml_parse_mapping_colon(property_text)) {
+                yaml_parse_error()
             } else if (yaml_parse_plain_scalar_candidate(property_text)) {
                 yaml_parse_start_plain_scalar(child_path, property_text, indent, 0)
                 yaml_parse_stack_pending_value_path[yaml_parse_depth] = ""
@@ -1852,6 +1920,7 @@ END {
     if (yaml_parse_pending_flow && yaml_parse_partial_incomplete_outer_sequence(yaml_parse_flow_buffer, yaml_parse_pending_flow_path)) {
         yaml_parse_error()
     }
+    yaml_parse_start_deferred_document()
     yaml_parse_finish_block_scalar()
     yaml_parse_finish()
 }

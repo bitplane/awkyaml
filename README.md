@@ -53,10 +53,12 @@ streams. Shell assignments are an output emitter, not the internal model.
 
 ## Tests
 
-`make test` currently runs three layers:
+`make test` currently runs four layers:
 
 - event round-trip tests for awkyaml's TSV event format
 - metadata checks for the vendored `yaml/yaml-test-suite` data snapshot
+- an unsupported-fixture manifest check for upstream event streams that cannot
+  be represented by the current path-based event model
 - parser comparisons for the IDs listed in `test/parse-core.txt`
 
 The parser comparison converts upstream `test.event` files into awkyaml TSV
@@ -64,3 +66,6 @@ events with `src/yaml_suite_events.awk`, parses the matching `in.yaml` with
 `src/yaml_parse.awk`, then diffs the two normalized streams.
 
 Add new upstream suite IDs to `test/parse-core.txt` as parser coverage expands.
+If an upstream event stream is not representable yet, list it in
+`test/parse-unsupported.txt`; the harness verifies that this skipped set is
+explicit and does not change silently.

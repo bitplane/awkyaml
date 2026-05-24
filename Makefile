@@ -1,7 +1,7 @@
 AWK ?= awk
 
 .PHONY: test
-test: events-test suite-metadata-test suite-events-test parse-progress parse-suite-test
+test: events-test suite-metadata-test suite-events-test parse-unsupported-test parse-progress parse-suite-test
 
 .PHONY: events-test
 events-test:
@@ -18,6 +18,10 @@ suite-events-test:
 .PHONY: parse-suite-test
 parse-suite-test:
 	test/run-parse-suite.sh "$(AWK)"
+
+.PHONY: parse-unsupported-test
+parse-unsupported-test:
+	test/run-parse-unsupported.sh "$(AWK)"
 
 .PHONY: parse-progress
 parse-progress:
