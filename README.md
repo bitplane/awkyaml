@@ -20,6 +20,12 @@ remain one physical line:
 Paths are slash-separated. The root path is the empty string. Sequence indexes
 are decimal path segments.
 
+The current event format intentionally addresses values by path. That keeps
+downstream emitters simple, but it cannot honestly represent YAML mappings whose
+keys are sequences or mappings. Those upstream fixtures are tracked separately
+in `test/parse-unsupported.txt` until the event model grows a non-path
+representation for complex keys.
+
 ```text
 DOC_START<TAB>doc_id
 DOC_END<TAB>doc_id

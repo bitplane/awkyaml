@@ -105,7 +105,7 @@ function yaml_parse_close_for_line(indent, seq_item) {
             } else {
                 break
             }
-        } else if (!seq_item) {
+        } else {
             if (yaml_parse_stack_type[yaml_parse_depth] == "seq" && indent <= yaml_parse_stack_indent[yaml_parse_depth]) {
                 yaml_parse_close_container()
             } else if (indent < yaml_parse_stack_indent[yaml_parse_depth]) {
@@ -113,8 +113,6 @@ function yaml_parse_close_for_line(indent, seq_item) {
             } else {
                 break
             }
-        } else {
-            break
         }
     }
 }
@@ -1220,9 +1218,21 @@ function yaml_parse_resolve_tag(token,    bang, suffix) {
     return token
 }
 
-function yaml_parse_tag_uri_decode(text) {
-    gsub(/%21/, "!", text)
-    return text
+function yaml_parse_tag_uri_decode(text,    out, i, ch, hex) {
+    out = ""
+    for (i = 1; i <= length(text); i++) {
+        ch = substr(text, i, 1)
+        if (ch == "%" && i + 2 <= length(text)) {
+            hex = substr(text, i + 1, 2)
+            if (hex ~ /^[0-9A-Fa-f][0-9A-Fa-f]$/) {
+                out = out sprintf("%c", yaml_parse_hex_value(hex))
+                i += 2
+                continue
+            }
+        }
+        out = out ch
+    }
+    return out
 }
 
 function yaml_parse_mapping_pair(text,    colon) {
