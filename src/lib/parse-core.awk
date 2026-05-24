@@ -1,6 +1,10 @@
 function yaml_parse_init() {
     yaml_parse_doc_id = 0
     yaml_parse_started = 0
+    yaml_parse_failed = 0
+    yaml_parse_deferred_doc_start = 0
+    yaml_parse_pending_block = 0
+    yaml_parse_pending_flow = 0
     yaml_parse_tag_handle["!!"] = "tag:yaml.org,2002:"
     yaml_parse_direct_unicode = (sprintf("%c", 9786) != ":")
 }
@@ -87,14 +91,6 @@ function yaml_parse_start_deferred_document() {
         yaml_parse_deferred_doc_start = 0
         yaml_parse_start_document()
         yaml_parse_empty_doc_pending = 1
-    }
-}
-
-function yaml_parse_reset_tag_handles(    handle) {
-    for (handle in yaml_parse_tag_handle) {
-        if (handle != "!!") {
-            delete yaml_parse_tag_handle[handle]
-        }
     }
 }
 
@@ -442,14 +438,14 @@ function yaml_parse_last_pending_key_path(    i) {
     return ""
 }
 
-function yaml_parse_current_map_path(indent,    child_path, parent_depth) {
+function yaml_parse_current_map_path(indent,    pending_path, parent_depth) {
     if (yaml_parse_pending_item_path != "") {
         yaml_parse_start_map(yaml_parse_pending_item_path, indent)
         yaml_parse_pending_item_path = ""
     } else if (yaml_parse_depth > 0 && yaml_parse_stack_type[yaml_parse_depth] == "map" && yaml_parse_stack_pending_container_value[yaml_parse_depth] && indent > yaml_parse_stack_indent[yaml_parse_depth]) {
-        child_path = yaml_parse_stack_pending_value_path[yaml_parse_depth]
+        pending_path = yaml_parse_stack_pending_value_path[yaml_parse_depth]
         parent_depth = yaml_parse_depth
-        yaml_parse_start_map(child_path, indent)
+        yaml_parse_start_map(pending_path, indent)
         yaml_parse_stack_pending_value_path[parent_depth] = ""
         yaml_parse_stack_pending_container_value[parent_depth] = 0
     } else if (yaml_parse_depth == 0 || yaml_parse_stack_type[yaml_parse_depth] != "map" || yaml_parse_stack_indent[yaml_parse_depth] != indent) {
@@ -520,18 +516,4 @@ function yaml_parse_key_text(text,    parsed, anchor) {
         yaml_event_emit_key_anchor(yaml_parse_doc_id, yaml_parse_scalar_anchor, yaml_parse_scalar_value_text)
     }
     return yaml_parse_scalar_value_text
-}
-
-function yaml_parse_trim(text) {
-    sub(/^[ \t]+/, "", text)
-    sub(/[ \t]+$/, "", text)
-    return text
-}
-
-function yaml_parse_indent(line,    n) {
-    n = match(line, /[^ ]/)
-    if (!n) {
-        return length(line)
-    }
-    return n - 1
 }

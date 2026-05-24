@@ -28,6 +28,7 @@ jobs:
           make build
           sha256sum build/awkyaml > build/awkyaml.sha256
           sha256sum build/awkyaml-json > build/awkyaml-json.sha256
+          sha256sum build/awkyaml-kv > build/awkyaml-kv.sha256
 
       - name: Create GitHub release
         env:
@@ -40,7 +41,9 @@ jobs:
               build/awkyaml#awkyaml \
               build/awkyaml.sha256#awkyaml.sha256 \
               build/awkyaml-json#awkyaml-json \
-              build/awkyaml-json.sha256#awkyaml-json.sha256
+              build/awkyaml-json.sha256#awkyaml-json.sha256 \
+              build/awkyaml-kv#awkyaml-kv \
+              build/awkyaml-kv.sha256#awkyaml-kv.sha256
           else
             gh release create "$TAG_NAME" \
               --verify-tag \
@@ -49,5 +52,7 @@ jobs:
               build/awkyaml#awkyaml \
               build/awkyaml.sha256#awkyaml.sha256 \
               build/awkyaml-json#awkyaml-json \
-              build/awkyaml-json.sha256#awkyaml-json.sha256
+              build/awkyaml-json.sha256#awkyaml-json.sha256 \
+              build/awkyaml-kv#awkyaml-kv \
+              build/awkyaml-kv.sha256#awkyaml-kv.sha256
           fi

@@ -120,6 +120,21 @@ function yaml_parse_block_line_dedents(line, indent) {
     return yaml_parse_block_indent < 0 && line !~ /^ *$/ && indent <= yaml_parse_block_parent_indent && !yaml_parse_block_indentless
 }
 
+function yaml_parse_reset_block_scalar() {
+    yaml_parse_pending_block = 0
+    yaml_parse_block_path = ""
+    yaml_parse_block_text = ""
+    yaml_parse_block_indentless = 0
+    yaml_parse_block_last_blank = 0
+    yaml_parse_block_blank_after_text = 0
+    yaml_parse_block_leading_blank_indent = 0
+    yaml_parse_block_tag = ""
+    yaml_parse_block_tag_explicit = 0
+    yaml_parse_block_anchor = ""
+    yaml_parse_block_is_key = 0
+    yaml_parse_block_key_depth = 0
+}
+
 function yaml_parse_finish_block_scalar(    text) {
     if (yaml_parse_failed) {
         return
@@ -142,18 +157,7 @@ function yaml_parse_finish_block_scalar(    text) {
     } else {
         yaml_event_emit_scalar(yaml_parse_doc_id, yaml_parse_block_path, yaml_parse_block_tag, yaml_parse_block_anchor, yaml_parse_block_scalar_style_name(), text, (yaml_parse_block_tag_explicit ? "explicit-tag" : ""))
     }
-    yaml_parse_pending_block = 0
-    yaml_parse_block_path = ""
-    yaml_parse_block_text = ""
-    yaml_parse_block_indentless = 0
-    yaml_parse_block_last_blank = 0
-    yaml_parse_block_blank_after_text = 0
-    yaml_parse_block_leading_blank_indent = 0
-    yaml_parse_block_tag = ""
-    yaml_parse_block_tag_explicit = 0
-    yaml_parse_block_anchor = ""
-    yaml_parse_block_is_key = 0
-    yaml_parse_block_key_depth = 0
+    yaml_parse_reset_block_scalar()
 }
 
 function yaml_parse_block_scalar_style_name() {

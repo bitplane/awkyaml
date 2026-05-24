@@ -1,8 +1,8 @@
-function yaml_parse_emit_flow_token(kind, token, path, count,    child_path) {
+function yaml_parse_emit_flow_token(kind, token, path, count,    flow_child_path) {
     if (kind == "seq") {
         if (yaml_parse_trim_flow_token(token) != "") {
-            child_path = yaml_event_path_join(path, count)
-            yaml_parse_flow_item(token, child_path)
+            flow_child_path = yaml_event_path_join(path, count)
+            yaml_parse_flow_item(token, flow_child_path)
             return 1
         }
         return 0
@@ -85,7 +85,7 @@ function yaml_parse_flow_sequence(text, path,    body) {
     return 1
 }
 
-function yaml_parse_flow_item(text, path,    item, child_path) {
+function yaml_parse_flow_item(text, path,    item, flow_child_path) {
     item = yaml_parse_trim_flow_token(text)
     if (item == "-") {
         yaml_parse_error()
@@ -97,15 +97,15 @@ function yaml_parse_flow_item(text, path,    item, child_path) {
         yaml_parse_flow_mapping(item, path)
     } else if (yaml_parse_flow_mapping_pair(item)) {
         yaml_parse_start_map(path, 0)
-        child_path = yaml_event_path_join(path, yaml_parse_key_text(yaml_parse_key))
-        yaml_parse_emit_value(child_path, yaml_parse_value)
+        flow_child_path = yaml_event_path_join(path, yaml_parse_key_text(yaml_parse_key))
+        yaml_parse_emit_value(flow_child_path, yaml_parse_value)
         yaml_parse_close_container()
     } else {
         yaml_parse_emit_value(path, item)
     }
 }
 
-function yaml_parse_emit_partial_flow_sequence_first(text, path,    body, comma, item, child_path) {
+function yaml_parse_emit_partial_flow_sequence_first(text, path,    body, comma, item, flow_child_path) {
     body = yaml_parse_trim_flow_token(text)
     if (substr(body, 1, 1) != "[") {
         return 0
@@ -120,8 +120,8 @@ function yaml_parse_emit_partial_flow_sequence_first(text, path,    body, comma,
     item = yaml_parse_trim_flow_token(item)
     yaml_parse_start_seq(path, 0)
     if (item != "") {
-        child_path = yaml_event_path_join(path, 0)
-        yaml_parse_emit_value(child_path, item)
+        flow_child_path = yaml_event_path_join(path, 0)
+        yaml_parse_emit_value(flow_child_path, item)
     }
     return 1
 }
@@ -145,7 +145,7 @@ function yaml_parse_flow_mapping(text, path,    body) {
     return 1
 }
 
-function yaml_parse_flow_mapping_item(text, path,    child_path) {
+function yaml_parse_flow_mapping_item(text, path,    flow_child_path) {
     if (yaml_parse_trim_flow_token(text) == "") {
         return
     }
@@ -163,8 +163,8 @@ function yaml_parse_flow_mapping_item(text, path,    child_path) {
         yaml_parse_error()
         return
     }
-    child_path = yaml_event_path_join(path, yaml_parse_key_text(yaml_parse_key))
-    yaml_parse_emit_value(child_path, yaml_parse_value)
+    flow_child_path = yaml_event_path_join(path, yaml_parse_key_text(yaml_parse_key))
+    yaml_parse_emit_value(flow_child_path, yaml_parse_value)
 }
 
 function yaml_parse_flow_mapping_pair(text,    colon) {
@@ -272,6 +272,13 @@ function yaml_parse_flow_complete(text,    i, ch, quote, depth, seen) {
     return 0
 }
 
+function yaml_parse_reset_pending_flow() {
+    yaml_parse_pending_flow = 0
+    yaml_parse_flow_buffer = ""
+    yaml_parse_pending_flow_path = ""
+    yaml_parse_pending_flow_indent = 0
+}
+
 function yaml_parse_continue_pending_flow(line, indent) {
     if (!yaml_parse_pending_flow) {
         return 0
@@ -300,9 +307,7 @@ function yaml_parse_continue_pending_flow(line, indent) {
         if (yaml_parse_pending_flow_path == "" && !yaml_parse_failed) {
             yaml_parse_root_complete = 1
         }
-        yaml_parse_pending_flow = 0
-        yaml_parse_flow_buffer = ""
-        yaml_parse_pending_flow_path = ""
+        yaml_parse_reset_pending_flow()
     }
     return 1
 }

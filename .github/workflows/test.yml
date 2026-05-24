@@ -24,7 +24,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gawk
 
       - name: POSIX lint the parser
-        run: gawk --posix --lint -f src/lib/events.awk -f src/lib/parse-core.awk -f src/lib/parse-scalar.awk -f src/lib/parse-block-scalar.awk -f src/lib/parse-flow.awk -f src/lib/parse-line.awk -f src/main/awkyaml.awk </dev/null >/dev/null
+        run: gawk --posix --lint -f src/lib/events.awk -f src/lib/parse-core.awk -f src/lib/parse-tags.awk -f src/lib/parse-scanner.awk -f src/lib/parse-scalar.awk -f src/lib/parse-block-scalar.awk -f src/lib/parse-flow.awk -f src/lib/parse-line.awk -f src/main/awkyaml.awk --source 'BEGIN { yaml_event_read("", yaml_lint_fields) }' </dev/null >/dev/null
 
   test:
     name: ${{ matrix.awk }}

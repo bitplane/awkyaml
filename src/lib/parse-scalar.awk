@@ -65,6 +65,15 @@ function yaml_parse_append_quoted_scalar(line) {
     }
 }
 
+function yaml_parse_reset_quoted_scalar() {
+    yaml_parse_pending_quote = 0
+    yaml_parse_quote_path = ""
+    yaml_parse_quote_text = ""
+    yaml_parse_quote_tag = ""
+    yaml_parse_quote_tag_explicit = 0
+    yaml_parse_quote_anchor = ""
+}
+
 function yaml_parse_finish_quoted_scalar(    value, quote, style) {
     if (!yaml_parse_pending_quote) {
         return
@@ -77,12 +86,7 @@ function yaml_parse_finish_quoted_scalar(    value, quote, style) {
     quote = substr(yaml_parse_trim(yaml_parse_quote_text), 1, 1)
     style = (quote == "\"" ? "double" : "single")
     yaml_event_emit_scalar(yaml_parse_doc_id, yaml_parse_quote_path, yaml_parse_quote_tag, yaml_parse_quote_anchor, style, value, (yaml_parse_quote_tag_explicit ? "explicit-tag" : ""))
-    yaml_parse_pending_quote = 0
-    yaml_parse_quote_path = ""
-    yaml_parse_quote_text = ""
-    yaml_parse_quote_tag = ""
-    yaml_parse_quote_tag_explicit = 0
-    yaml_parse_quote_anchor = ""
+    yaml_parse_reset_quoted_scalar()
 }
 
 function yaml_parse_multiline_quoted_value(text,    quote, content, i, ch, lines, count, out, line, raw_line, blank, first_nonempty, j) {
@@ -199,6 +203,15 @@ function yaml_parse_append_plain_scalar(line,    text, stripped, had_comment) {
     yaml_parse_plain_comment_break = had_comment
 }
 
+function yaml_parse_reset_plain_scalar() {
+    yaml_parse_pending_plain = 0
+    yaml_parse_plain_path = ""
+    yaml_parse_plain_text = ""
+    yaml_parse_plain_blank = 0
+    yaml_parse_plain_comment_break = 0
+    yaml_parse_plain_tag_explicit = 0
+}
+
 function yaml_parse_finish_plain_scalar() {
     if (!yaml_parse_pending_plain) {
         return
@@ -207,12 +220,7 @@ function yaml_parse_finish_plain_scalar() {
     if (yaml_parse_plain_anchor != "") {
         yaml_parse_anchor_scalar_value[yaml_parse_plain_anchor] = yaml_parse_plain_text
     }
-    yaml_parse_pending_plain = 0
-    yaml_parse_plain_path = ""
-    yaml_parse_plain_text = ""
-    yaml_parse_plain_blank = 0
-    yaml_parse_plain_comment_break = 0
-    yaml_parse_plain_tag_explicit = 0
+    yaml_parse_reset_plain_scalar()
 }
 
 function yaml_parse_line_continues_plain(line, indent) {
@@ -403,42 +411,4 @@ function yaml_parse_scalar(text,    token, tag) {
     }
     yaml_parse_scalar_value_text = yaml_parse_scalar_value(text)
     return "scalar"
-}
-
-function yaml_parse_resolve_tag(token,    bang, suffix) {
-    if (token in yaml_parse_tag_handle) {
-        return yaml_parse_tag_handle[token]
-    }
-    bang = index(substr(token, 2), "!")
-    if (bang) {
-        bang++
-        suffix = substr(token, bang + 1)
-        token = substr(token, 1, bang)
-        if (token in yaml_parse_tag_handle) {
-            return yaml_parse_tag_handle[token] yaml_parse_tag_uri_decode(suffix)
-        }
-        yaml_parse_error()
-        return token
-    }
-    if (substr(token, 1, 1) == "!" && ("!" in yaml_parse_tag_handle)) {
-        return yaml_parse_tag_handle["!"] yaml_parse_tag_uri_decode(substr(token, 2))
-    }
-    return token
-}
-
-function yaml_parse_tag_uri_decode(text,    out, i, ch, hex) {
-    out = ""
-    for (i = 1; i <= length(text); i++) {
-        ch = substr(text, i, 1)
-        if (ch == "%" && i + 2 <= length(text)) {
-            hex = substr(text, i + 1, 2)
-            if (hex ~ /^[0-9A-Fa-f][0-9A-Fa-f]$/) {
-                out = out sprintf("%c", yaml_parse_hex_value(hex))
-                i += 2
-                continue
-            }
-        }
-        out = out ch
-    }
-    return out
 }

@@ -47,7 +47,7 @@ function yaml_parse_mapping_colon(text,    i, ch, quote, in_tag, next_ch, prev_c
     return 0
 }
 
-function yaml_parse_explicit_key(text, indent,    key, child_path) {
+function yaml_parse_explicit_key(text, indent,    key) {
     if (text !~ /^\?([ \t].*)?$/) {
         return 0
     }
@@ -66,7 +66,7 @@ function yaml_parse_explicit_key(text, indent,    key, child_path) {
     return 1
 }
 
-function yaml_parse_explicit_value(text, indent,    value, child_path, item_path, map_depth) {
+function yaml_parse_explicit_value(text, indent,    value, explicit_child_path, item_path, map_depth) {
     if (text !~ /^:([ \t].*)?$/) {
         return 0
     }
@@ -74,12 +74,12 @@ function yaml_parse_explicit_value(text, indent,    value, child_path, item_path
     yaml_parse_finalize_explicit_key()
     map_depth = yaml_parse_depth
     value = yaml_parse_trim(substr(text, 2))
-    child_path = yaml_parse_stack_pending_value_path[yaml_parse_depth]
-    if (child_path == "") {
-        child_path = yaml_event_path_join(yaml_parse_stack_path[yaml_parse_depth], "")
+    explicit_child_path = yaml_parse_stack_pending_value_path[yaml_parse_depth]
+    if (explicit_child_path == "") {
+        explicit_child_path = yaml_event_path_join(yaml_parse_stack_path[yaml_parse_depth], "")
     }
     if (value == "-" || value ~ /^-[ \t]/) {
-        yaml_parse_start_seq(child_path, indent + 2)
+        yaml_parse_start_seq(explicit_child_path, indent + 2)
         item_path = yaml_parse_next_seq_item_path(indent + 2)
         value = yaml_parse_trim(substr(value, 2))
         if (value == "") {
@@ -90,22 +90,14 @@ function yaml_parse_explicit_value(text, indent,    value, child_path, item_path
         }
     } else {
         if (yaml_parse_plain_scalar_candidate(value)) {
-            yaml_parse_start_plain_scalar(child_path, value, indent, 0)
+            yaml_parse_start_plain_scalar(explicit_child_path, value, indent, 0)
         } else {
-            yaml_parse_emit_value(child_path, value)
+            yaml_parse_emit_value(explicit_child_path, value)
         }
     }
     yaml_parse_stack_pending_value_path[map_depth] = ""
     yaml_parse_stack_pending_container_value[map_depth] = 0
     return 1
-}
-
-function yaml_parse_leading_spaces(text,    n) {
-    n = match(text, /[^ ]/)
-    if (!n) {
-        return length(text)
-    }
-    return n - 1
 }
 
 function yaml_parse_continue_pending_quote(line, indent) {
@@ -222,42 +214,6 @@ function yaml_parse_continue_pending(line, indent) {
     return 0
 }
 
-function yaml_parse_line_is_blank_or_comment(line) {
-    return line ~ /^[ \t]*($|#)/
-}
-
-function yaml_parse_line_is_yaml_directive(line) {
-    return line ~ /^%YAML[ \t]+/
-}
-
-function yaml_parse_line_has_invalid_yaml_directive(line) {
-    return yaml_parse_line_is_yaml_directive(line) && line !~ /^%YAML[ \t]+[0-9]+[.][0-9]+([ \t]+#.*)?$/
-}
-
-function yaml_parse_line_is_tag_directive(line) {
-    return line ~ /^%TAG[ \t]+/
-}
-
-function yaml_parse_line_is_directive(line) {
-    return line ~ /^%/
-}
-
-function yaml_parse_line_is_document_start_with_content(line) {
-    return line ~ /^---[ \t]+/
-}
-
-function yaml_parse_line_is_document_start(line) {
-    return line ~ /^---[ \t]*$/
-}
-
-function yaml_parse_line_is_document_end(line) {
-    return line ~ /^\.\.\.([ \t]|$)/
-}
-
-function yaml_parse_text_is_sequence_item(text) {
-    return text == "-" || text ~ /^-[ \t]/
-}
-
 function yaml_parse_handle_directive_line(line) {
     if (yaml_parse_line_has_invalid_yaml_directive(line)) {
         yaml_parse_error()
@@ -356,7 +312,7 @@ function yaml_parse_prepare_content_line(line, indent) {
     return 0
 }
 
-function yaml_parse_handle_sequence_item(text, indent,    item_path, child_path, nested_indent, seq_gap) {
+function yaml_parse_handle_sequence_item(text, indent,    item_path, seq_child_path, nested_indent, seq_gap) {
     if (!yaml_parse_text_is_sequence_item(text)) {
         return 0
     }
@@ -370,9 +326,9 @@ function yaml_parse_handle_sequence_item(text, indent,    item_path, child_path,
         yaml_parse_error()
         return 1
     }
-    child_path = yaml_parse_last_pending_key_path()
-    if (child_path != "" && yaml_parse_stack_type[yaml_parse_depth] == "map" && yaml_parse_stack_pending_container_value[yaml_parse_depth] && (indent > yaml_parse_stack_indent[yaml_parse_depth] || yaml_parse_pending_node_is_container() || (yaml_parse_pending_node_tag == "" && yaml_parse_pending_node_anchor == "") || (yaml_parse_pending_node_tag == "" && yaml_parse_pending_node_anchor != "" && indent == yaml_parse_stack_indent[yaml_parse_depth]))) {
-        yaml_parse_start_seq(child_path, indent)
+    seq_child_path = yaml_parse_last_pending_key_path()
+    if (seq_child_path != "" && yaml_parse_stack_type[yaml_parse_depth] == "map" && yaml_parse_stack_pending_container_value[yaml_parse_depth] && (indent > yaml_parse_stack_indent[yaml_parse_depth] || yaml_parse_pending_node_is_container() || (yaml_parse_pending_node_tag == "" && yaml_parse_pending_node_anchor == "") || (yaml_parse_pending_node_tag == "" && yaml_parse_pending_node_anchor != "" && indent == yaml_parse_stack_indent[yaml_parse_depth]))) {
+        yaml_parse_start_seq(seq_child_path, indent)
         yaml_parse_stack_pending_value_path[yaml_parse_depth - 1] = ""
         yaml_parse_stack_pending_container_value[yaml_parse_depth - 1] = 0
     } else if (yaml_parse_pending_item_path != "" && indent > yaml_parse_pending_item_indent) {
@@ -424,8 +380,8 @@ function yaml_parse_handle_sequence_item(text, indent,    item_path, child_path,
     }
     if (text == ":" || text ~ /^:[ \t]/) {
         yaml_parse_start_map(item_path, indent + 2)
-        child_path = yaml_event_path_join(item_path, "")
-        yaml_parse_emit_value(child_path, yaml_parse_trim(substr(text, 2)))
+        seq_child_path = yaml_event_path_join(item_path, "")
+        yaml_parse_emit_value(seq_child_path, yaml_parse_trim(substr(text, 2)))
         yaml_parse_close_container()
         return 1
     }
@@ -435,32 +391,16 @@ function yaml_parse_handle_sequence_item(text, indent,    item_path, child_path,
     }
     if (yaml_parse_mapping_pair(text)) {
         yaml_parse_start_map(item_path, indent + 2)
-        child_path = yaml_event_path_join(item_path, yaml_parse_key_text(yaml_parse_key))
+        seq_child_path = yaml_event_path_join(item_path, yaml_parse_key_text(yaml_parse_key))
         if (yaml_parse_block_scalar_indicator(yaml_parse_value)) {
-            yaml_parse_start_block_scalar(child_path, yaml_parse_value, indent + 2)
+            yaml_parse_start_block_scalar(seq_child_path, yaml_parse_value, indent + 2)
         } else {
-            yaml_parse_emit_value(child_path, yaml_parse_value)
+            yaml_parse_emit_value(seq_child_path, yaml_parse_value)
         }
     } else {
         yaml_parse_emit_or_start_node_value(item_path, text, (nested_indent > indent ? nested_indent : indent), (nested_indent > indent ? nested_indent + 2 : nested_indent + 1), 0, indent, 1, 0, 0, 0, 0)
     }
     return 1
-}
-
-function yaml_parse_line_reenters_sequence_at_map_value_indent(indent) {
-    return yaml_parse_depth > 1 && yaml_parse_stack_type[yaml_parse_depth] == "seq" && yaml_parse_stack_type[yaml_parse_depth - 1] == "map" && indent == yaml_parse_stack_indent[yaml_parse_depth] && indent > yaml_parse_stack_indent[yaml_parse_depth - 1]
-}
-
-function yaml_parse_line_indents_between_nested_maps(indent) {
-    return yaml_parse_depth > 1 && yaml_parse_stack_type[yaml_parse_depth] == "map" && yaml_parse_stack_type[yaml_parse_depth - 1] == "map" && indent > yaml_parse_stack_indent[yaml_parse_depth - 1] && indent < yaml_parse_stack_indent[yaml_parse_depth]
-}
-
-function yaml_parse_line_starts_orphan_nested_mapping(text, indent) {
-    return yaml_parse_depth > 0 && yaml_parse_stack_type[yaml_parse_depth] == "map" && indent > yaml_parse_stack_indent[yaml_parse_depth] && yaml_parse_mapping_pair(text) && yaml_parse_last_pending_key_path() == ""
-}
-
-function yaml_parse_line_closes_root_sequence_with_content(indent) {
-    return yaml_parse_depth == 1 && yaml_parse_stack_type[yaml_parse_depth] == "seq" && yaml_parse_stack_path[yaml_parse_depth] == "" && indent <= yaml_parse_stack_indent[yaml_parse_depth]
 }
 
 function yaml_parse_handle_indent_errors(text, indent) {
@@ -518,28 +458,28 @@ function yaml_parse_handle_root_value(text, indent,    property_text) {
     return 1
 }
 
-function yaml_parse_handle_pending_map_value(text, indent,    child_path) {
+function yaml_parse_handle_pending_map_value(text, indent,    pending_child_path) {
     if (!(yaml_parse_depth > 0 && yaml_parse_stack_type[yaml_parse_depth] == "map" && !yaml_parse_mapping_pair(text))) {
         return 0
     }
-    child_path = yaml_parse_last_pending_key_path()
-    if (child_path != "") {
+    pending_child_path = yaml_parse_last_pending_key_path()
+    if (pending_child_path != "") {
         if (yaml_parse_pending_node_anchor != "" && text ~ /^&[^ \t]+[ \t]+/) {
             yaml_parse_error()
             return 1
         } else if (yaml_parse_pending_node_anchor != "" && yaml_parse_pending_node_tag == "" && indent <= yaml_parse_stack_indent[yaml_parse_depth] && text ~ /^!/) {
-            yaml_parse_emit_scalar(child_path, "")
+            yaml_parse_emit_scalar(pending_child_path, "")
             yaml_parse_error()
             return 1
         } else if (indent <= yaml_parse_stack_indent[yaml_parse_depth] && yaml_parse_pending_node_property(text)) {
             yaml_parse_error()
             return 1
         } else if (yaml_parse_pending_node_property(text)) {
-            yaml_parse_stack_pending_value_path[yaml_parse_depth] = child_path
+            yaml_parse_stack_pending_value_path[yaml_parse_depth] = pending_child_path
             yaml_parse_stack_pending_container_value[yaml_parse_depth] = 1
             return 1
         } else {
-            yaml_parse_emit_or_start_node_value(child_path, text, indent, indent, 0, yaml_parse_stack_indent[yaml_parse_depth], 1, 1, 0, 0, 0)
+            yaml_parse_emit_or_start_node_value(pending_child_path, text, indent, indent, 0, yaml_parse_stack_indent[yaml_parse_depth], 1, 1, 0, 0, 0)
         }
         yaml_parse_stack_pending_value_path[yaml_parse_depth] = ""
         yaml_parse_stack_pending_container_value[yaml_parse_depth] = 0
@@ -562,23 +502,23 @@ function yaml_parse_handle_pending_sequence_value(text, indent) {
     return 1
 }
 
-function yaml_parse_handle_mapping_pair(text, indent,    child_path, property_text) {
+function yaml_parse_handle_mapping_pair(text, indent,    pair_child_path, property_text) {
     yaml_parse_current_map_path(indent)
     if (yaml_parse_stack_type[yaml_parse_depth] == "map" && yaml_parse_mapping_pair(text)) {
         yaml_parse_emit_pending_map_null()
-        child_path = yaml_event_path_join(yaml_parse_stack_path[yaml_parse_depth], yaml_parse_key_text(yaml_parse_key))
+        pair_child_path = yaml_event_path_join(yaml_parse_stack_path[yaml_parse_depth], yaml_parse_key_text(yaml_parse_key))
         if (yaml_parse_value == "") {
-            yaml_parse_stack_pending_value_path[yaml_parse_depth] = child_path
+            yaml_parse_stack_pending_value_path[yaml_parse_depth] = pair_child_path
             yaml_parse_stack_pending_container_value[yaml_parse_depth] = 1
         } else if (yaml_parse_text_is_sequence_item(yaml_parse_value)) {
             yaml_parse_error()
         } else {
             property_text = yaml_parse_extract_node_properties(yaml_parse_value)
             if (property_text == "") {
-                yaml_parse_stack_pending_value_path[yaml_parse_depth] = child_path
+                yaml_parse_stack_pending_value_path[yaml_parse_depth] = pair_child_path
                 yaml_parse_stack_pending_container_value[yaml_parse_depth] = 1
             } else {
-                yaml_parse_emit_or_start_node_value(child_path, property_text, indent, indent, 0, indent, 1, 1, 1, 1, 1)
+                yaml_parse_emit_or_start_node_value(pair_child_path, property_text, indent, indent, 0, indent, 1, 1, 1, 1, 1)
                 yaml_parse_stack_pending_value_path[yaml_parse_depth] = ""
                 yaml_parse_stack_pending_container_value[yaml_parse_depth] = 0
             }
@@ -657,11 +597,4 @@ function yaml_parse_line(line,    marker, indent, text) {
         return
     }
     yaml_parse_handle_mapping_pair(text, indent)
-}
-
-function yaml_parse_read_tag_directive(line,    parts) {
-    split(line, parts, /[ \t]+/)
-    if (parts[2] != "" && parts[3] != "") {
-        yaml_parse_tag_handle[parts[2]] = parts[3]
-    }
 }

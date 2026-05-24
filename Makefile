@@ -5,7 +5,7 @@ help: ## Show this help.
 	@awk 'BEGIN { FS = ":.*## " } /^[A-Za-z0-9_.-]+:.*## / { printf "%-24s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 .PHONY: test
-test: build lib-purity-test events-test regressions-test json-test json-suite-test suite-metadata-test suite-events-test parse-unsupported-test parse-progress parse-suite-test ## Run the full test suite.
+test: build lib-purity-test events-test regressions-test json-test json-suite-test kv-test suite-metadata-test suite-events-test parse-unsupported-test parse-progress parse-suite-test ## Run the full test suite.
 
 .PHONY: events-test
 events-test: ## Round-trip the TSV event format.
@@ -26,6 +26,10 @@ json-test: ## Check the events-to-JSON emitter.
 .PHONY: json-suite-test
 json-suite-test: ## Compare JSON output against upstream in.json fixtures.
 	sh test/run-json-suite.sh "$(AWK)" build/awkyaml build/awkyaml-json
+
+.PHONY: kv-test
+kv-test: ## Check the events-to-shell-key/value emitter.
+	sh test/run-kv.sh "$(AWK)" build/awkyaml build/awkyaml-kv
 
 .PHONY: suite-metadata-test
 suite-metadata-test: ## Sanity-check the vendored yaml-test-suite snapshot.
@@ -52,12 +56,13 @@ clean: ## Remove generated build artifacts.
 	rm -rf build
 
 EVENTS = src/lib/events.awk
-PARSER_LIBS = src/lib/parse-core.awk src/lib/parse-scalar.awk src/lib/parse-block-scalar.awk src/lib/parse-flow.awk src/lib/parse-line.awk
+PARSER_LIBS = src/lib/parse-core.awk src/lib/parse-tags.awk src/lib/parse-scanner.awk src/lib/parse-scalar.awk src/lib/parse-block-scalar.awk src/lib/parse-flow.awk src/lib/parse-line.awk
 AWKYAML_SRCS = $(EVENTS) $(PARSER_LIBS) src/main/awkyaml.awk
 AWKYAML_JSON_SRCS = $(EVENTS) src/lib/json.awk src/main/awkyaml-json.awk
+AWKYAML_KV_SRCS = $(EVENTS) src/lib/kv.awk src/main/awkyaml-kv.awk
 
 .PHONY: build
-build: build/awkyaml build/awkyaml-json ## Build single-file awk tools into build/.
+build: build/awkyaml build/awkyaml-json build/awkyaml-kv ## Build single-file awk tools into build/.
 
 build/awkyaml: $(AWKYAML_SRCS) scripts/bundle.sh
 	@mkdir -p build
@@ -66,3 +71,7 @@ build/awkyaml: $(AWKYAML_SRCS) scripts/bundle.sh
 build/awkyaml-json: $(AWKYAML_JSON_SRCS) scripts/bundle.sh
 	@mkdir -p build
 	@scripts/bundle.sh $@ $(AWKYAML_JSON_SRCS)
+
+build/awkyaml-kv: $(AWKYAML_KV_SRCS) scripts/bundle.sh
+	@mkdir -p build
+	@scripts/bundle.sh $@ $(AWKYAML_KV_SRCS)

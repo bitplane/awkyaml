@@ -75,9 +75,9 @@ models do not. awkyaml therefore treats those upstream suite cases as explicitly
 unsupported instead of adding a structural event model that downstream emitters
 cannot use.
 
-Shell assignments, JSON output, and Liquid-style data loading are output
-emitters layered on top of the event stream; this repository is currently the
-parser and event-stream core.
+JSON output, shell key/value assignments, and Liquid-style data loading are
+output emitters layered on top of the event stream; this repository is currently
+the parser and event-stream core.
 
 ## Build
 
@@ -89,6 +89,14 @@ Libraries must not contain `BEGIN`, `END`, or top-level pattern/action blocks;
 ```text
 build/awkyaml
 build/awkyaml-json
+build/awkyaml-kv
+```
+
+`awkyaml-kv` reads events on stdin and emits shell-safe assignments. It accepts
+an optional awk variable prefix:
+
+```sh
+build/awkyaml file.yaml | build/awkyaml-kv -v prefix=page
 ```
 
 ## Tests
@@ -100,6 +108,7 @@ build/awkyaml-json
 - project parser regressions
 - JSON emitter smoke tests
 - upstream `in.json` parity tests
+- shell key/value emitter smoke tests
 - metadata checks for the vendored `yaml/yaml-test-suite` data snapshot
 - suite-event conversion checks
 - an unsupported-fixture manifest check for upstream event streams that cannot
@@ -110,7 +119,8 @@ build/awkyaml-json
 The parser comparison converts upstream `test.event` files into awkyaml TSV
 events with `src/lib/events.awk` and `src/yaml_suite_events.awk`, parses the
 matching `in.yaml` with `build/awkyaml`, then diffs the two normalized streams.
-JSON parity tests pipe `build/awkyaml` into `build/awkyaml-json`.
+JSON parity tests pipe `build/awkyaml` into `build/awkyaml-json`; KV smoke tests
+pipe `build/awkyaml` into `build/awkyaml-kv`.
 
 Add new upstream suite IDs to `test/parse-core.txt` as parser coverage expands.
 If an upstream event stream is not representable yet, list it in
