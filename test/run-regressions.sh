@@ -61,5 +61,15 @@ run_case \
     '-\n  "quoted\n  value"\n' \
     'DOC_START\t0\nSEQ_START\t0\t\ttag:yaml.org,2002:seq\t\nSCALAR\t0\t0\ttag:yaml.org,2002:str\t\tdouble\tquoted value\nSEQ_END\t0\t\nDOC_END\t0\n'
 
+run_case \
+    "anchors before scalar collection and block values" \
+    'plain: &a text\nseq: &s [1, 2]\nblock: &b |\n  text\n' \
+    'DOC_START\t0\nMAP_START\t0\t\ttag:yaml.org,2002:map\t\nSCALAR\t0\tplain\ttag:yaml.org,2002:str\ta\tplain\ttext\nSEQ_START\t0\tseq\ttag:yaml.org,2002:seq\ts\nSCALAR\t0\tseq/0\ttag:yaml.org,2002:str\t\tplain\t1\nSCALAR\t0\tseq/1\ttag:yaml.org,2002:str\t\tplain\t2\nSEQ_END\t0\tseq\nSCALAR\t0\tblock\ttag:yaml.org,2002:str\tb\tliteral\ttext\\n\nMAP_END\t0\t\nDOC_END\t0\n'
+
+run_case \
+    "unsupported compact complex key reports through one path" \
+    '? -\n: value\n' \
+    'DOC_START\t0\nSEQ_START\t0\t\ttag:yaml.org,2002:seq\t\nSEQ_START\t0\t0\ttag:yaml.org,2002:seq\t\n'
+
 echo "regressions: $passed passed, $failed failed"
 test "$failed" -eq 0
