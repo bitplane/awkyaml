@@ -775,26 +775,20 @@ function yaml_parse_block_scalar_style_name() {
     return "folded"
 }
 
-function yaml_parse_flow_sequence(text, path,    body, i, ch, quote, depth, token, count, child_path) {
-    if (yaml_parse_trim(text) ~ /^\[/ && text ~ /\n[ \t]*:/) {
-        body = substr(text, index(text, "[") + 1)
-        sub(/\n.*/, "", body)
-        body = yaml_parse_trim_flow_token(body)
-        yaml_parse_start_seq(path, 0)
-        if (body != "") {
-            child_path = yaml_event_path_join(path, 0)
-            yaml_parse_emit_value(child_path, body)
+function yaml_parse_emit_flow_token(kind, token, path, count,    child_path) {
+    if (kind == "seq") {
+        if (yaml_parse_trim_flow_token(token) != "") {
+            child_path = yaml_event_path_join(path, count)
+            yaml_parse_flow_item(token, child_path)
+            return 1
         }
-        yaml_parse_error()
-        return 1
-    }
-    body = yaml_parse_trim_flow_token(text)
-    if (substr(body, 1, 1) != "[" || substr(body, length(body), 1) != "]") {
         return 0
     }
-    body = substr(body, 2, length(body) - 2)
+    yaml_parse_flow_mapping_item(token, path)
+    return 1
+}
 
-    yaml_parse_start_seq(path, 0)
+function yaml_parse_flow_tokens(kind, body, path,    i, ch, quote, depth, token, count) {
     quote = ""
     depth = 0
     token = ""
@@ -818,35 +812,51 @@ function yaml_parse_flow_sequence(text, path,    body, i, ch, quote, depth, toke
         } else if (ch == "]" || ch == "}") {
             depth--
             token = token ch
-        } else if (ch == "#" && depth == 0 && yaml_parse_trim_flow_token(token) == "") {
+        } else if (kind == "seq" && ch == "#" && depth == 0 && yaml_parse_trim_flow_token(token) == "") {
             yaml_parse_error()
-            return 1
+            return count
         } else if (ch == "," && depth == 0) {
-            if (yaml_parse_trim_flow_token(token) != "") {
-                child_path = yaml_event_path_join(path, count)
-                yaml_parse_flow_item(token, child_path)
+            if (yaml_parse_emit_flow_token(kind, token, path, count)) {
                 if (yaml_parse_failed) {
-                    return 1
+                    return count
                 }
                 count++
-            } else if (count == 0) {
+            } else if (kind == "seq") {
                 yaml_parse_error()
-                return 1
-            } else {
-                yaml_parse_error()
-                return 1
+                return count
             }
             token = ""
         } else {
             token = token ch
         }
     }
-    if (yaml_parse_trim_flow_token(token) != "") {
-        child_path = yaml_event_path_join(path, count)
-        yaml_parse_flow_item(token, child_path)
-        if (yaml_parse_failed) {
-            return 1
+    yaml_parse_emit_flow_token(kind, token, path, count)
+    return count
+}
+
+function yaml_parse_flow_sequence(text, path,    body) {
+    if (yaml_parse_trim(text) ~ /^\[/ && text ~ /\n[ \t]*:/) {
+        body = substr(text, index(text, "[") + 1)
+        sub(/\n.*/, "", body)
+        body = yaml_parse_trim_flow_token(body)
+        yaml_parse_start_seq(path, 0)
+        if (body != "") {
+            child_path = yaml_event_path_join(path, 0)
+            yaml_parse_emit_value(child_path, body)
         }
+        yaml_parse_error()
+        return 1
+    }
+    body = yaml_parse_trim_flow_token(text)
+    if (substr(body, 1, 1) != "[" || substr(body, length(body), 1) != "]") {
+        return 0
+    }
+    body = substr(body, 2, length(body) - 2)
+
+    yaml_parse_start_seq(path, 0)
+    yaml_parse_flow_tokens("seq", body, path)
+    if (yaml_parse_failed) {
+        return 1
     }
     yaml_parse_close_container()
     return 1
@@ -893,7 +903,7 @@ function yaml_parse_emit_partial_flow_sequence_first(text, path,    body, comma,
     return 1
 }
 
-function yaml_parse_flow_mapping(text, path,    body, i, ch, quote, depth, token) {
+function yaml_parse_flow_mapping(text, path,    body) {
     body = yaml_parse_trim_flow_token(text)
     if (substr(body, 1, 1) != "{" || substr(body, length(body), 1) != "}") {
         return 0
@@ -905,36 +915,7 @@ function yaml_parse_flow_mapping(text, path,    body, i, ch, quote, depth, token
         yaml_parse_error()
         return 1
     }
-    quote = ""
-    depth = 0
-    token = ""
-    for (i = 1; i <= length(body); i++) {
-        ch = substr(body, i, 1)
-        if (quote != "") {
-            token = token ch
-            if (ch == quote) {
-                quote = ""
-            } else if (yaml_parse_quote_escape_char(quote, ch)) {
-                i++
-                token = token substr(body, i, 1)
-            }
-        } else if (yaml_parse_quote_start_char(ch)) {
-            quote = ch
-            token = token ch
-        } else if (ch == "[" || ch == "{") {
-            depth++
-            token = token ch
-        } else if (ch == "]" || ch == "}") {
-            depth--
-            token = token ch
-        } else if (ch == "," && depth == 0) {
-            yaml_parse_flow_mapping_item(token, path)
-            token = ""
-        } else {
-            token = token ch
-        }
-    }
-    yaml_parse_flow_mapping_item(token, path)
+    yaml_parse_flow_tokens("map", body, path)
     if (!yaml_parse_failed) {
         yaml_parse_close_container()
     }
